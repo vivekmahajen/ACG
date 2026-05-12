@@ -23,7 +23,10 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",
+    "https://www.googleapis.com/auth/youtube.force-ssl",  # needed for comments
+]
 TOKEN_FILE = "token.json"
 
 CATEGORY_ID_MAP = {
@@ -153,6 +156,11 @@ def run(stage2_output: dict, stage3_output: dict, stage4_output: dict,
 
     result = _retry_upload(youtube, video_file, stage3_output, stage2_output, conf, conf.get("max_retries", 3))
 
+    # Post pinned comment to drive early engagement
+    pinned_comment = stage3_output.get("pinned_comment")
+    if pinned_comment:
+        _post_pinned_comment(youtube, result["video_id"], pinned_comment)
+
     # Post-upload housekeeping
     published_at = datetime.now(timezone.utc).isoformat()
     db.log_published_topic(stage2_output["topic"], published_at, result["video_url"])
@@ -166,6 +174,30 @@ def run(stage2_output: dict, stage3_output: dict, stage4_output: dict,
             logger.warning("Stage 5 | Could not delete video file: %s", e)
 
     return result
+
+
+def _post_pinned_comment(youtube, video_id: str, comment_text: str) -> None:
+    try:
+        response = youtube.commentThreads().insert(
+            part="snippet",
+            body={
+                "snippet": {
+                    "videoId": video_id,
+                    "topLevelComment": {
+                        "snippet": {"textOriginal": comment_text}
+                    },
+                }
+            },
+        ).execute()
+        comment_id = response["snippet"]["topLevelComment"]["id"]
+        # Pin the comment
+        youtube.comments().setModerationStatus(
+            id=comment_id,
+            moderationStatus="published",
+        ).execute()
+        logger.info("Stage 5 | Pinned comment posted: %s", comment_text)
+    except Exception as e:
+        logger.warning("Stage 5 | Could not post pinned comment: %s", e)
 
 
 def _mock_stage5_output(stage3: dict) -> dict:
