@@ -72,25 +72,41 @@ Topics already published in the last 7 days (DO NOT repeat these):
 Return ONLY valid JSON matching the required schema."""
 
 
-def _strip_fences(raw: str) -> str:
-    """Remove markdown code fences Claude sometimes wraps JSON in."""
+def _extract_json(raw: str) -> dict:
+    """Try multiple strategies to extract JSON from Claude's response."""
     raw = raw.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[-1]  # drop the opening ```json line
-    if raw.endswith("```"):
-        raw = raw.rsplit("```", 1)[0]
-    return raw.strip()
+
+    # Strategy 1: strip fences then parse
+    cleaned = raw
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("\n", 1)[-1]
+    if cleaned.endswith("```"):
+        cleaned = cleaned.rsplit("```", 1)[0]
+    cleaned = cleaned.strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    # Strategy 2: find outermost { } and parse
+    start = raw.find("{")
+    end = raw.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        try:
+            return json.loads(raw[start:end + 1])
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(f"Could not extract valid JSON.\nRaw: {raw[:600]}")
 
 
 def _parse_and_validate(raw: str) -> dict:
-    raw = _strip_fences(raw)
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"Claude returned invalid JSON: {e}\nRaw: {raw[:500]}") from e
+    logger.warning("Stage 2 | Raw Claude response: %s", raw[:800])
+    data = _extract_json(raw)
 
     missing = REQUIRED_OUTPUT_KEYS - set(data.keys())
     if missing:
+        logger.warning("Stage 2 | Parsed keys: %s", list(data.keys()))
         raise ValueError(f"Claude response missing keys: {missing}")
 
     if len(data.get("topic", "")) > 120:
@@ -113,7 +129,7 @@ def _call_claude(client: anthropic.Anthropic, model: str, user_prompt: str, atte
     strictness = "" if attempt == 1 else "\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY raw JSON — no markdown, no explanation, no backticks."
     message = client.messages.create(
         model=model,
-        max_tokens=600,
+        max_tokens=1200,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt + strictness}],
     )
