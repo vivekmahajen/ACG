@@ -1,12 +1,11 @@
 """Stage 4 — Video Generation.
 
-Submits the prompt to a text-to-video API and downloads the resulting MP4.
-Cascades through providers: Kling → Runway → Higgsfield.
-Post-processes the video (trim, scale, fade) and validates the result.
+Generates three 10-second clips (one per scene prompt) and stitches them into
+a 30-second MP4. Falls back to fewer clips if any scene fails.
 """
 
 import os
-import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,6 +24,7 @@ PROVIDER_MAP = {
     "runway": runway,
     "higgsfield": higgsfield,
 }
+INTER_CLIP_DELAY = 15  # seconds to wait between Kling requests to avoid 429s
 
 
 def _output_path(suffix: str = "") -> str:
@@ -41,90 +41,116 @@ def _try_provider(name: str, prompt: str, duration: int, raw_path: str) -> str:
     return provider.generate(prompt, duration=duration, output_path=raw_path)
 
 
+def _generate_clip(prompt: str, scene_num: int, duration: int, order: list[str]) -> str | None:
+    clip_path = _output_path(f"_scene{scene_num}_raw")
+    for provider_name in order:
+        try:
+            clip = _try_provider(provider_name, prompt, duration, clip_path)
+            logger.info("Stage 4 | Scene %d generated with %s", scene_num, provider_name)
+            return clip
+        except _requests.exceptions.HTTPError as e:
+            logger.warning("Stage 4 | Scene %d provider %s HTTP error: %s", scene_num, provider_name, e)
+        except EnvironmentError as e:
+            if any(k in str(e) for k in ("not set", "credentials", "API key", "KLING", "RUNWAY", "HIGGSFIELD")):
+                logger.warning("Stage 4 | Provider %s skipped (not configured): %s", provider_name, e)
+            else:
+                logger.warning("Stage 4 | Scene %d provider %s failed: %s", scene_num, provider_name, e)
+        except (RuntimeError, TimeoutError, Exception) as e:
+            logger.warning("Stage 4 | Scene %d provider %s failed: %s", scene_num, provider_name, e)
+    logger.error("Stage 4 | Scene %d failed on all providers", scene_num)
+    return None
+
+
 def run(stage3_output: dict, dry_run: bool = False) -> dict:
     """Execute Stage 4. Returns dict with video_file, video_provider, video_duration."""
     conf = cfg.load_config()
     preferred = conf.get("video_provider", "kling")
     duration = conf.get("video_duration_seconds", 10)
 
-    prompt: str = stage3_output["video_prompt"]
-    logger.info("Stage 4 | Generating video (preferred=%s, duration=%ds)", preferred, duration)
+    logger.info("Stage 4 | Generating 3-scene video (preferred=%s, duration=%ds each)", preferred, duration)
 
     if dry_run:
         logger.info("Stage 4 | DRY-RUN — returning mock video path")
         return _mock_stage4_output()
 
-    # Build provider order: preferred first, then the others
     order = [preferred] + [p for p in PROVIDER_ORDER if p != preferred]
-    raw_path = _output_path("_raw")
-    final_path = _output_path("_final")
 
+    # Collect the 3 scene prompts
+    prompts = [
+        stage3_output.get("video_prompt_1"),
+        stage3_output.get("video_prompt_2"),
+        stage3_output.get("video_prompt_3"),
+    ]
+    # Fall back to single prompt if running against old stage3 output
+    if not any(prompts):
+        prompts = [stage3_output.get("video_prompt")]
+
+    prompts = [p for p in prompts if p]
+    logger.info("Stage 4 | Generating %d scene clip(s)", len(prompts))
+
+    clips: list[str] = []
     used_provider: str | None = None
-    raw_file: str | None = None
 
-    for provider_name in order:
+    for i, prompt in enumerate(prompts, 1):
+        if i > 1:
+            logger.info("Stage 4 | Waiting %ds between clips to avoid rate limits", INTER_CLIP_DELAY)
+            time.sleep(INTER_CLIP_DELAY)
+        clip = _generate_clip(prompt, i, duration, order)
+        if clip:
+            clips.append(clip)
+            if not used_provider:
+                used_provider = preferred
+
+    if not clips:
+        raise RuntimeError("Stage 4 failed: all scene generations failed")
+
+    # Stitch clips together if we have more than one
+    if len(clips) > 1:
+        stitched_path = _output_path("_stitched")
         try:
-            raw_file = _try_provider(provider_name, prompt, duration, raw_path)
-            used_provider = provider_name
-            logger.info("Stage 4 | Generation succeeded with %s", provider_name)
-            break
-        except _requests.exceptions.HTTPError as e:
-            logger.warning("Stage 4 | Provider %s HTTP error: %s — trying next", provider_name, e)
-        except EnvironmentError as e:
-            if any(k in str(e) for k in ("not set", "credentials", "API key", "KLING", "RUNWAY", "HIGGSFIELD")):
-                logger.warning("Stage 4 | Provider %s skipped (not configured): %s", provider_name, e)
-            else:
-                logger.warning("Stage 4 | Provider %s failed: %s — trying next", provider_name, e)
-        except (RuntimeError, TimeoutError, Exception) as e:
-            logger.warning("Stage 4 | Provider %s failed: %s — trying next", provider_name, e)
-
-    if not raw_file or not used_provider:
-        raise RuntimeError("Stage 4 failed: all providers failed or are unconfigured")
-
-    # Post-process
-    logger.info("Stage 4 | Post-processing video")
-    try:
-        ffmpeg.post_process(raw_file, final_path)
-    except Exception as e:
-        logger.warning("Stage 4 | Post-processing failed (%s) — using raw file", e)
-        final_path = raw_file
+            ffmpeg.concatenate(clips, stitched_path)
+            logger.info("Stage 4 | Stitched %d clips into %s", len(clips), stitched_path)
+            for clip in clips:
+                try:
+                    os.remove(clip)
+                except OSError:
+                    pass
+            raw_file = stitched_path
+        except Exception as e:
+            logger.warning("Stage 4 | Concatenation failed (%s) — using first clip only", e)
+            raw_file = clips[0]
+    else:
+        raw_file = clips[0]
 
     # Validate (best-effort — skip gracefully if ffmpeg not installed)
     try:
-        ffmpeg.validate_video(final_path)
+        ffmpeg.validate_video(raw_file)
     except Exception as e:
-        logger.warning("Stage 4 | Validation skipped (%s) — proceeding with raw file", e)
-        final_path = raw_file
-
-    # Clean up intermediate raw file (if different from final)
-    if raw_file != final_path and Path(raw_file).exists():
-        try:
-            os.remove(raw_file)
-        except OSError:
-            pass
+        logger.warning("Stage 4 | Validation skipped (%s) — proceeding", e)
 
     try:
-        info = ffmpeg.probe(final_path)
+        info = ffmpeg.probe(raw_file)
         duration_actual = float(info.get("duration", 0))
     except Exception:
-        duration_actual = 0.0
+        duration_actual = float(duration * len(clips))
 
-    logger.info("Stage 4 | Final video: %s (%.1fs)", final_path, duration_actual)
+    logger.info("Stage 4 | Final video: %s (%.1fs, %d scenes)", raw_file, duration_actual, len(clips))
     return {
         "video_provider": used_provider,
-        "video_file": final_path,
+        "video_file": raw_file,
         "video_duration": duration_actual,
+        "scenes_generated": len(clips),
     }
 
 
 def _mock_stage4_output() -> dict:
     mock_path = "generated_videos/dry_run_mock.mp4"
     Path("generated_videos").mkdir(exist_ok=True)
-    # Create a tiny valid placeholder so downstream checks don't fail on file existence
     if not Path(mock_path).exists():
         Path(mock_path).write_bytes(b"\x00" * 1024)
     return {
         "video_provider": "kling",
         "video_file": mock_path,
-        "video_duration": 10.0,
+        "video_duration": 30.0,
+        "scenes_generated": 3,
     }
