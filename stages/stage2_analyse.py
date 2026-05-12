@@ -72,7 +72,18 @@ Topics already published in the last 7 days (DO NOT repeat these):
 Return ONLY valid JSON matching the required schema."""
 
 
+def _strip_fences(raw: str) -> str:
+    """Remove markdown code fences Claude sometimes wraps JSON in."""
+    raw = raw.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]  # drop the opening ```json line
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0]
+    return raw.strip()
+
+
 def _parse_and_validate(raw: str) -> dict:
+    raw = _strip_fences(raw)
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
