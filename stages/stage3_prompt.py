@@ -103,6 +103,12 @@ def _call_claude(client: anthropic.Anthropic, model: str, user_prompt: str, atte
         messages=[{"role": "user", "content": user_prompt + strictness}],
     )
     raw = message.content[0].text.strip()
+    # Strip markdown code fences Claude sometimes adds despite instructions
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1]
+    if raw.endswith("```"):
+        raw = raw.rsplit("```", 1)[0]
+    raw = raw.strip()
     logger.debug("Stage 3 | Claude raw response:\n%s", raw[:800])
 
     try:
