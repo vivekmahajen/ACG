@@ -38,16 +38,18 @@ SCRIPT_TOOL = {
     },
 }
 
-SCRIPT_SYSTEM = """You write ultra-short, punchy voiceover scripts for 10-second YouTube Shorts.
+SCRIPT_SYSTEM = """You write punchy voiceover scripts for 30-second YouTube Shorts.
 
 Rules:
-- 2 to 4 sentences maximum
-- Each sentence is short and direct — no filler words
-- Hook the viewer in the first sentence
-- End with a curiosity gap or call to action
-- Spoken aloud it must fit in under 10 seconds (roughly 25–35 words total)
-- Plain conversational English — no hashtags, no emojis, no markdown
-- Do NOT describe visuals — this is audio only"""
+- Exactly 3 beats matching the 3 video scenes: Hook (0-10s) → Problem (10-20s) → Solution (20-30s)
+- Each beat is 1–2 short sentences
+- Total spoken length must fit in 28–30 seconds (roughly 70–85 words total)
+- Hook beat: open with a surprising fact or question — make the viewer freeze
+- Problem beat: amplify the cost or consequence with a specific number
+- Solution beat: deliver the actionable insight and end with a call to action
+- Plain conversational English — no hashtags, no emojis, no markdown, no stage directions
+- Do NOT describe visuals — this is audio only
+- Write as one continuous script (no scene labels or headers)"""
 
 
 def _generate_script(title: str, hook: str, topic: str, model: str) -> str:
@@ -67,7 +69,7 @@ def _generate_script(title: str, hook: str, topic: str, model: str) -> str:
         try:
             message = client.messages.create(
                 model=model,
-                max_tokens=200,
+                max_tokens=400,
                 system=SCRIPT_SYSTEM,
                 tools=[SCRIPT_TOOL],
                 tool_choice={"type": "any"},
@@ -76,8 +78,8 @@ def _generate_script(title: str, hook: str, topic: str, model: str) -> str:
             for block in message.content:
                 if block.type == "tool_use" and block.name == "submit_voiceover_script":
                     script = block.input.get("script", "").strip()
-                    if len(script.split()) < 10:
-                        raise ValueError(f"Script too short: {script!r}")
+                    if len(script.split()) < 40:
+                        raise ValueError(f"Script too short ({len(script.split())} words, min 40): {script!r}")
                     logger.info("Stage 4b | Script: %s", script)
                     return script
             raise ValueError("Claude did not call submit_voiceover_script")
