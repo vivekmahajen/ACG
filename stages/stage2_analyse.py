@@ -91,6 +91,8 @@ def _parse_and_validate(raw: str) -> dict:
 
     missing = REQUIRED_OUTPUT_KEYS - set(data.keys())
     if missing:
+        logger.warning("Stage 2 | RAW CLAUDE RESPONSE: %s", raw[:1000])
+        logger.warning("Stage 2 | PARSED KEYS: %s", list(data.keys()))
         raise ValueError(f"Claude response missing keys: {missing}")
 
     if len(data.get("topic", "")) > 120:
