@@ -10,6 +10,8 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
+import requests as _requests
+
 from providers import higgsfield, kling, runway
 from utils import config as cfg
 from utils import ffmpeg
@@ -66,8 +68,13 @@ def run(stage3_output: dict, dry_run: bool = False) -> dict:
             used_provider = provider_name
             logger.info("Stage 4 | Generation succeeded with %s", provider_name)
             break
+        except _requests.exceptions.HTTPError as e:
+            logger.warning("Stage 4 | Provider %s HTTP error: %s — trying next", provider_name, e)
         except EnvironmentError as e:
-            logger.warning("Stage 4 | Provider %s skipped (not configured): %s", provider_name, e)
+            if any(k in str(e) for k in ("not set", "credentials", "API key", "KLING", "RUNWAY", "HIGGSFIELD")):
+                logger.warning("Stage 4 | Provider %s skipped (not configured): %s", provider_name, e)
+            else:
+                logger.warning("Stage 4 | Provider %s failed: %s — trying next", provider_name, e)
         except (RuntimeError, TimeoutError, Exception) as e:
             logger.warning("Stage 4 | Provider %s failed: %s — trying next", provider_name, e)
 
