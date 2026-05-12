@@ -134,21 +134,43 @@ def _parse_and_validate(raw: str) -> dict:
     return data
 
 
+TREND_TOOL = {
+    "name": "submit_trend_analysis",
+    "description": "Submit the trend analysis result with the selected topic and all required fields.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "topic": {"type": "string", "description": "Specific one-sentence topic for the video"},
+            "why_this_topic": {"type": "string", "description": "Two sentences explaining the data signal"},
+            "hook": {"type": "string", "description": "Exact first sentence of the video — under 10 words"},
+            "key_visual_idea": {"type": "string", "description": "One sentence describing the strongest visual metaphor"},
+            "target_emotion": {"type": "string", "enum": ["curiosity", "surprise", "urgency", "inspiration", "fear", "relief"]},
+            "estimated_watch_through_rate": {"type": "string", "description": "high, medium, or low with one-sentence justification"},
+            "competitor_angle": {"type": "string", "description": "How to differentiate from existing videos"},
+        },
+        "required": ["topic", "why_this_topic", "hook", "key_visual_idea", "target_emotion", "estimated_watch_through_rate", "competitor_angle"],
+    },
+}
+
+
 def _call_claude(client: anthropic.Anthropic, model: str, user_prompt: str, attempt: int = 1) -> dict:
-    # Prefill the assistant turn with "{" — forces Claude to output JSON directly
-    # with no preamble, no markdown fences, and no invented key names.
+    # Use tool use to enforce the exact JSON schema — Claude must call the tool
+    # with the required fields, making key name drift impossible.
     message = client.messages.create(
         model=model,
         max_tokens=1200,
         system=SYSTEM_PROMPT,
-        messages=[
-            {"role": "user", "content": user_prompt},
-            {"role": "assistant", "content": "{"},
-        ],
+        tools=[TREND_TOOL],
+        tool_choice={"type": "any"},
+        messages=[{"role": "user", "content": user_prompt}],
     )
-    raw = "{" + message.content[0].text.strip()
-    logger.debug("Stage 2 | Claude raw response:\n%s", raw[:600])
-    return _parse_and_validate(raw)
+    # Extract the tool input dict from the response
+    for block in message.content:
+        if block.type == "tool_use" and block.name == "submit_trend_analysis":
+            data = block.input
+            logger.debug("Stage 2 | Tool input: %s", str(data)[:600])
+            return _parse_and_validate(json.dumps(data))
+    raise ValueError(f"Claude did not call the trend tool. Response: {message.content}")
 
 
 def run(stage1_output: dict, dry_run: bool = False) -> dict:
