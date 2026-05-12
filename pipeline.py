@@ -9,10 +9,17 @@ Usage:
 """
 
 import argparse
+import base64
 import json
 import os
 import sys
 import time
+
+# Railway deployment: decode token.json from env var so OAuth works without a browser
+if os.environ.get("TOKEN_JSON_B64"):
+    with open("token.json", "w") as _f:
+        _f.write(base64.b64decode(os.environ["TOKEN_JSON_B64"]).decode())
+
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
