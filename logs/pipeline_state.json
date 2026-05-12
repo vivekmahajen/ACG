@@ -1,0 +1,32 @@
+{
+  "saved_at": "2026-05-12T00:51:00+00:00",
+  "stage1_out": {"channels": [], "videos": []},
+  "stage2_out": {
+    "topic": "Why your daily coffee shop habit is silently costing you over $1,200 a year",
+    "hook": "Your daily $6 coffee is quietly stealing over $1,200 from your savings every single year.",
+    "target_emotion": "shock and urgency",
+    "key_visual_idea": "Coffee cup surrounded by coins and dollar bills",
+    "competitor_angle": "Make the math visceral and personal"
+  },
+  "stage3_out": {
+    "video_prompt": "A young woman sits at a cosy kitchen table in warm golden morning light.",
+    "video_prompt_1": "A young woman sits at a cosy kitchen table in warm golden morning light.",
+    "video_prompt_2": "A kitchen table covered in 365 coffee cups under cool clinical light.",
+    "video_prompt_3": "The same woman presses a French press at home with a satisfied smile.",
+    "title": "Your $5 Coffee Is Costing You $1,200 a Year",
+    "description": "Your daily coffee habit is quietly draining $1,200 from your savings every single year.\nHere's the exact math that will make you rethink your morning routine.\nFollow for daily money tips that actually move the needle. #PersonalFinance #SavingMoney #LatteFactor #MoneyHacks #Shorts",
+    "tags": ["personal finance", "money tips", "financial advice", "how to save money fast", "money saving habits", "latte factor", "cut daily expenses", "why coffee is costing you money", "latte factor explained", "save $1200 a year", "daily spending audit", "personal finance for millennials", "money tips for beginners", "finance shorts", "money short video"],
+    "hashtags": ["PersonalFinance", "SavingMoney", "LatteFactor", "MoneyHacks", "Shorts"],
+    "thumbnail_concept": "Close-up of a shocked young woman's face with a bold red '$1,200' on a dark background.",
+    "pinned_comment": "How much do you spend on coffee a month? Drop the number — I'll calculate your yearly total ☕",
+    "category": "Finance",
+    "category_id": "27",
+    "language": "en"
+  },
+  "stage4_out": {
+    "video_provider": "kling",
+    "video_file": "generated_videos/20260512T072857_final.mp4",
+    "video_duration": 10.0,
+    "scenes_generated": 1
+  }
+}
