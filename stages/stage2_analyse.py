@@ -135,14 +135,18 @@ def _parse_and_validate(raw: str) -> dict:
 
 
 def _call_claude(client: anthropic.Anthropic, model: str, user_prompt: str, attempt: int = 1) -> dict:
-    strictness = "" if attempt == 1 else "\n\nIMPORTANT: Your previous response was not valid JSON. Return ONLY raw JSON — no markdown, no explanation, no backticks."
+    # Prefill the assistant turn with "{" — forces Claude to output JSON directly
+    # with no preamble, no markdown fences, and no invented key names.
     message = client.messages.create(
         model=model,
         max_tokens=1200,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": user_prompt + strictness}],
+        messages=[
+            {"role": "user", "content": user_prompt},
+            {"role": "assistant", "content": "{"},
+        ],
     )
-    raw = message.content[0].text.strip()
+    raw = "{" + message.content[0].text.strip()
     logger.debug("Stage 2 | Claude raw response:\n%s", raw[:600])
     return _parse_and_validate(raw)
 
