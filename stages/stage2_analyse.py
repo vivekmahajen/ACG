@@ -69,7 +69,16 @@ Recently published videos to analyse:
 Topics already published in the last 7 days (DO NOT repeat these):
 {dedup_block}
 
-Return ONLY valid JSON matching the required schema."""
+You MUST return ONLY this exact JSON structure with these exact key names — no other keys, no nesting, no extra fields:
+{{
+  "topic": "specific one-sentence topic",
+  "why_this_topic": "two sentences explaining the data signal",
+  "hook": "exact first sentence under 10 words",
+  "key_visual_idea": "one sentence describing the strongest visual metaphor",
+  "target_emotion": "one word: curiosity or surprise or urgency or inspiration or fear or relief",
+  "estimated_watch_through_rate": "high or medium or low — one sentence justification",
+  "competitor_angle": "how to differentiate from existing videos"
+}}"""
 
 
 def _extract_json(raw: str) -> dict:
