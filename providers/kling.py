@@ -67,8 +67,19 @@ def generate(prompt: str, duration: int = 10, output_path: str = "generated_vide
     }
 
     logger.info("Kling | Submitting generation request")
-    resp = requests.post(f"{BASE_URL}/v1/videos/text2video", json=payload, headers=headers, timeout=30)
-    resp.raise_for_status()
+    for attempt in range(3):
+        resp = requests.post(f"{BASE_URL}/v1/videos/text2video", json=payload, headers=headers, timeout=30)
+        if resp.status_code == 429:
+            wait = 30 * (attempt + 1)
+            logger.warning("Kling | 429 rate-limited — waiting %ds (attempt %d/3)", wait, attempt + 1)
+            time.sleep(wait)
+            token = _make_jwt(access_key, secret_key)
+            headers["Authorization"] = f"Bearer {token}"
+            continue
+        resp.raise_for_status()
+        break
+    else:
+        resp.raise_for_status()
     data = resp.json()
 
     task_id = (
