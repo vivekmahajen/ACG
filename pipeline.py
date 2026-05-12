@@ -26,7 +26,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from stages import stage1_research, stage2_analyse, stage3_prompt, stage4_generate, stage5_publish
+from stages import stage1_research, stage2_analyse, stage3_prompt, stage4_generate, stage4b_audio, stage5_publish
 from utils import config as cfg
 from utils import database as db
 from utils.alerts import send_alert
@@ -162,6 +162,15 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5) -> dict:
         }
         if stop_after_stage == 4:
             return _finish(run_id, "success", pipeline_start, log_data)
+
+        # ── Stage 4b: Voiceover ───────────────────────────────────────────
+        logger.info(">>> Stage 4b: Voiceover Generation")
+        stage4_out = _run_with_retry(
+            lambda: stage4b_audio.run(stage2_out, stage3_out, stage4_out, dry_run=dry_run),
+            max_retries=conf["max_retries"],
+            backoff=conf["retry_backoff_seconds"],
+            stage_name="Stage 4b",
+        )
 
         # ── Stage 5: Publish ──────────────────────────────────────────────
         logger.info(">>> Stage 5: YouTube Publish")
