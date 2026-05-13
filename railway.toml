@@ -1,0 +1,4 @@
+[deploy]
+cronSchedule = "0 15 * * *"
+startCommand = "python pipeline.py"
+# force redeploy: 2026-05-13
