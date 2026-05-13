@@ -171,6 +171,6 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict, dry_run: bool = Fa
         except OSError:
             pass
         return {**stage4_out, "video_file": mixed, "has_audio": True}
-    except RuntimeError as e:
+    except (RuntimeError, FileNotFoundError, OSError) as e:
         logger.warning("Stage 4b | ffmpeg mix failed (%s) — using silent video", e)
         return stage4_out
