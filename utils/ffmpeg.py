@@ -37,8 +37,8 @@ def validate_video(file_path: str) -> None:
     width = int(info.get("width", 0))
     height = int(info.get("height", 0))
 
-    if not (5 <= duration <= 35):
-        raise ValueError(f"Video duration {duration:.1f}s outside acceptable range 5–35s")
+    if not (5 <= duration <= 65):
+        raise ValueError(f"Video duration {duration:.1f}s outside acceptable range 5–65s")
     if width < 720 or height < 1280:
         raise ValueError(f"Video resolution {width}x{height} below minimum 720x1280")
 
@@ -95,6 +95,23 @@ def post_process(input_path: str, output_path: str) -> None:
             os.remove(t)
         except OSError:
             pass
+
+
+def concatenate(clips: list[str], output_path: str) -> str:
+    import os as _os, tempfile
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
+        for clip in clips:
+            f.write(f"file '{_os.path.abspath(clip)}'\n")
+        list_file = f.name
+    try:
+        cmd = ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", list_file, "-c", "copy", output_path]
+        _run(cmd, "concatenate")
+    finally:
+        try:
+            _os.remove(list_file)
+        except OSError:
+            pass
+    return output_path
 
 
 def _run(cmd: list[str], name: str) -> None:
