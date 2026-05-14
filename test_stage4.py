@@ -56,7 +56,7 @@ def test_mock_output_keys():
     assert "video_file" in out
     assert "video_duration" in out
     assert out["video_provider"] == "kling"
-    assert out["video_duration"] == 10.0
+    assert out["video_duration"] == 30.0
 
 
 def test_dry_run_returns_mock():

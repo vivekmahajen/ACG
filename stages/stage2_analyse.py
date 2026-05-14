@@ -97,7 +97,7 @@ def _extract_json(raw: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    raise ValueError(f"Could not extract valid JSON.\nRaw: {raw[:600]}")
+    raise ValueError(f"invalid JSON: could not extract valid JSON from response.\nRaw: {raw[:600]}")
 
 
 def _parse_and_validate(raw: str) -> dict:
