@@ -78,7 +78,7 @@ def test_parse_missing_keys():
 
 def test_parse_topic_too_long():
     data = dict(VALID_RESULT)
-    data["topic"] = "x" * 121
+    data["topic"] = "x" * 151
     with pytest.raises(ValueError, match="Topic too long"):
         _parse_and_validate(json.dumps(data))
 
