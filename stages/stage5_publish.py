@@ -121,6 +121,18 @@ def _retry_upload(youtube, video_file: str, stage3: dict, stage2: dict, conf: di
                 logger.error("Stage 5 | YouTube quota exceeded (403) — cannot upload")
                 raise
             if status == 400:
+                reason = ""
+                try:
+                    import json as _json
+                    details = _json.loads(e.content)
+                    reason = details.get("error", {}).get("errors", [{}])[0].get("reason", "")
+                except Exception:
+                    pass
+                if reason == "uploadLimitExceeded":
+                    logger.error(
+                        "Stage 5 | YouTube upload limit reached — verify your channel at "
+                        "YouTube Studio → Settings → Channel → Feature eligibility"
+                    )
                 logger.error("Stage 5 | Bad request (400) — check metadata: %s", e)
                 raise
             if status in (500, 503):
