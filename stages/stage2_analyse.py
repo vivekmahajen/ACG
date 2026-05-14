@@ -97,7 +97,7 @@ def _extract_json(raw: str) -> dict:
         except json.JSONDecodeError:
             pass
 
-    raise ValueError(f"Could not extract valid JSON.\nRaw: {raw[:600]}")
+    raise ValueError(f"invalid JSON: could not extract valid JSON from response.\nRaw: {raw[:600]}")
 
 
 def _parse_and_validate(raw: str) -> dict:
@@ -108,8 +108,8 @@ def _parse_and_validate(raw: str) -> dict:
         logger.warning("Stage 2 | Parsed keys: %s", list(data.keys()))
         raise ValueError(f"Claude response missing keys: {missing}")
 
-    if len(data.get("topic", "")) > 120:
-        raise ValueError(f"Topic too long ({len(data['topic'])} chars > 120)")
+    if len(data.get("topic", "")) > 150:
+        raise ValueError(f"Topic too long ({len(data['topic'])} chars > 150)")
 
     emotion = data.get("target_emotion", "").lower()
     if emotion not in VALID_EMOTIONS:

@@ -7,21 +7,27 @@ from stages.stage3_prompt import _validate, _mock_stage3_output, run
 from utils import config as cfg
 
 
+_SCENE_PROMPT = (
+    "A young woman sits at a kitchen table in warm golden morning light, her hands wrapped "
+    "around a coffee mug. The camera begins in a tight close-up and slowly pulls back in a "
+    "smooth tracking shot, revealing coins scattered across the table around her. Her expression "
+    "shifts from relaxed to quietly stunned as she looks down at the money. The colour grade is "
+    "warm amber with soft shadows evoking comfort turning into realisation. A single shaft of "
+    "natural window light falls diagonally across the scene making the coins glint. The 9:16 "
+    "vertical frame keeps her face centred creating an intimate confessional mood. The overall "
+    "aesthetic is cinematic and premium — warm human and emotionally resonant throughout."
+)
+
 VALID_DATA = {
-    "video_prompt": (
-        "A young woman sits at a kitchen table in warm golden morning light, her hands wrapped "
-        "around a coffee mug. The camera begins in a tight close-up and slowly pulls back in a "
-        "smooth tracking shot, revealing coins scattered across the table around her. Her expression "
-        "shifts from relaxed to quietly stunned as she looks down at the money. The colour grade is "
-        "warm amber with soft shadows evoking comfort turning into realisation. A single shaft of "
-        "natural window light falls diagonally across the scene making the coins glint. The 9:16 "
-        "vertical frame keeps her face centred creating an intimate confessional mood. The overall "
-        "aesthetic is cinematic and premium — warm human and emotionally resonant throughout."
-    ),
+    "video_prompt_1": _SCENE_PROMPT,
+    "video_prompt_2": _SCENE_PROMPT,
+    "video_prompt_3": _SCENE_PROMPT,
     "title": "Your coffee habit costs $1,200/year",
     "description": "You buy this every day without thinking. We did the maths. Follow for more.",
     "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6", "tag7", "tag8", "tag9", "tag10", "tag11", "tag12"],
+    "hashtags": ["PersonalFinance", "SavingMoney", "LatteFactor", "MoneyHacks", "Shorts"],
     "thumbnail_concept": "Coins overflowing from a coffee cup.",
+    "pinned_comment": "How much do you spend on coffee monthly?",
     "category": "Finance",
     "language": "en",
 }
@@ -74,7 +80,7 @@ def test_validate_passes_valid_data():
 
 def test_validate_rejects_short_prompt():
     data = dict(VALID_DATA)
-    data["video_prompt"] = "Short prompt."
+    data["video_prompt_1"] = "Short prompt."
     with pytest.raises(ValueError, match="too short"):
         _validate(data)
 
@@ -95,7 +101,7 @@ def test_validate_rejects_too_few_tags():
 
 def test_validate_rejects_disqualified_words():
     data = dict(VALID_DATA)
-    data["video_prompt"] = VALID_DATA["video_prompt"] + " A subtitle appears at the bottom."
+    data["video_prompt_1"] = VALID_DATA["video_prompt_1"] + " A subtitle appears at the bottom."
     with pytest.raises(ValueError, match="disqualified word"):
         _validate(data)
 
