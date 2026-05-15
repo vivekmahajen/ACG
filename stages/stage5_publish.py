@@ -25,6 +25,7 @@ logger = get_logger(__name__)
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/youtube.force-ssl",  # required for commentThreads.insert
 ]
 TOKEN_FILE = "token.json"
 
@@ -216,8 +217,8 @@ def _post_comment(youtube, video_id: str, text: str) -> None:
     except HttpError as e:
         if e.resp.status == 403:
             logger.error(
-                "Stage 5 | Comment posting forbidden (403) — your token.json is missing the "
-                "'youtube.force-ssl' scope. Delete token.json and re-authenticate."
+                "Stage 5 | Comment posting forbidden (403) — delete token.json and re-authenticate "
+                "to pick up the youtube.force-ssl scope."
             )
         else:
             logger.error("Stage 5 | Could not post comment (HTTP %s): %s", e.resp.status, e)
