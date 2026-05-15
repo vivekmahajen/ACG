@@ -40,7 +40,7 @@ logger = get_logger(__name__)
 STATE_FILE = "logs/pipeline_state.json"
 
 
-def _save_state(stage1_out, stage2_out, stage3_out, stage4_out) -> None:
+def _save_state(stage1_out, stage2_out, stage3_out, stage4_out, resources=None) -> None:
     Path("logs").mkdir(exist_ok=True)
     state = {
         "saved_at": datetime.now(timezone.utc).isoformat(),
@@ -48,12 +48,13 @@ def _save_state(stage1_out, stage2_out, stage3_out, stage4_out) -> None:
         "stage2_out": stage2_out,
         "stage3_out": stage3_out,
         "stage4_out": stage4_out,
+        "resources": resources or [],
     }
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=2)
 
 
-def _load_state() -> tuple[dict, dict, dict, dict]:
+def _load_state() -> tuple[dict, dict, dict, dict, list]:
     if not Path(STATE_FILE).exists():
         raise FileNotFoundError(
             f"No saved state found at {STATE_FILE}. Run the full pipeline first."
@@ -66,6 +67,7 @@ def _load_state() -> tuple[dict, dict, dict, dict]:
         state.get("stage2_out", {}),
         state.get("stage3_out", {}),
         state.get("stage4_out", {}),
+        state.get("resources", []),
     )
 
 
@@ -113,7 +115,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
 
     # Load saved state if resuming mid-pipeline
     if resume_from > 1:
-        stage1_out, stage2_out, stage3_out, stage4_out = _load_state()
+        stage1_out, stage2_out, stage3_out, stage4_out, stage2b_resources_out = _load_state()
         logger.info("Resuming from Stage %d — skipping stages 1–%d", resume_from, resume_from - 1)
 
     try:
@@ -132,7 +134,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
                 channels_found=len(stage1_out.get("channels", [])),
                 videos_collected=len(stage1_out.get("videos", [])),
             )
-            _save_state(stage1_out, stage2_out, stage3_out, stage4_out)
+            _save_state(stage1_out, stage2_out, stage3_out, stage4_out, stage2b_resources_out)
         if stop_after_stage == 1:
             return _finish(run_id, "success", pipeline_start, log_data)
 
@@ -157,7 +159,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
                 "hook": stage2_out.get("hook"),
                 "emotion": stage2_out.get("target_emotion"),
             }
-            _save_state(stage1_out, stage2_out, stage3_out, stage4_out)
+            _save_state(stage1_out, stage2_out, stage3_out, stage4_out, stage2b_resources_out)
 
         # ── Stage 2b: Resource Search ────────────────────────────────────
         if resume_from <= 2:
@@ -185,7 +187,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
                 youtube_tags=json.dumps(stage3_out.get("tags", [])),
                 thumbnail_concept=stage3_out.get("thumbnail_concept"),
             )
-            _save_state(stage1_out, stage2_out, stage3_out, stage4_out)
+            _save_state(stage1_out, stage2_out, stage3_out, stage4_out, stage2b_resources_out)
         if stop_after_stage == 3:
             return _finish(run_id, "success", pipeline_start, log_data)
 
@@ -213,7 +215,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
                 "file_size_kb": _file_size_kb(stage4_out.get("video_file", "")),
                 "generation_time_seconds": round(gen_elapsed),
             }
-            _save_state(stage1_out, stage2_out, stage3_out, stage4_out)
+            _save_state(stage1_out, stage2_out, stage3_out, stage4_out, stage2b_resources_out)
 
         # ── Stage 4b: Voiceover ───────────────────────────────────────────
         if resume_from <= 4:
@@ -224,7 +226,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
                 backoff=conf["retry_backoff_seconds"],
                 stage_name="Stage 4b",
             )
-            _save_state(stage1_out, stage2_out, stage3_out, stage4_out)
+            _save_state(stage1_out, stage2_out, stage3_out, stage4_out, stage2b_resources_out)
 
         if stop_after_stage == 4:
             return _finish(run_id, "success", pipeline_start, log_data)

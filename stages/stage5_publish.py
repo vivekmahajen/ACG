@@ -226,10 +226,16 @@ def _post_comment(youtube, video_id: str, text: str) -> None:
 
 
 def _build_comment(stage3: dict, resources: list[dict]) -> str:
-    from stages.stage2b_resources import format_pinned_comment
+    from stages.stage2b_resources import format_pinned_comment, DISCLAIMER
     if resources:
         return format_pinned_comment(resources)
-    return stage3.get("pinned_comment", "")
+    # No resources available (e.g. resumed from stage 5) — still wrap with disclaimer
+    pinned = stage3.get("pinned_comment", "").strip()
+    parts = [DISCLAIMER]
+    if pinned:
+        parts += ["", pinned]
+    parts += ["", DISCLAIMER]
+    return "\n".join(parts)
 
 
 def _mock_stage5_output(stage3: dict) -> dict:
