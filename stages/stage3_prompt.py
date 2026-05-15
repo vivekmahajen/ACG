@@ -21,18 +21,26 @@ You will receive a trend topic and must produce two things in a single response:
 PART 1 — THREE SCENE PROMPTS FOR A 30-SECOND SHORT
 Write three sequential cinematic prompts for a text-to-video AI model (Kling). Each scene is exactly 10 seconds. Together they form a complete 30-second story arc.
 
+FACIAL EXPRESSION ARC — THIS IS MANDATORY IN EVERY VIDEO:
+The subject's face must follow this exact emotional journey across the three scenes:
+- Scene 1: expression is serious, concerned, or mildly worried — they sense something is wrong
+- Scene 2: expression deepens to troubled, grim, or visibly stressed — the problem is hitting them
+- Scene 3: expression gradually softens and opens into a warm, relieved smile — the solution has landed and they feel grateful and hopeful
+Every scene prompt MUST explicitly describe the subject's facial expression following this arc. A flat or neutral face is not acceptable.
+
 SCENE 1 — HOOK (seconds 0–10)
-Grab attention immediately. Open mid-action. Establish the central problem or surprising fact visually. Make the viewer feel something is at stake.
+Grab attention immediately. Open mid-action. Establish the central problem or surprising fact visually. Make the viewer feel something is at stake. Subject's face is serious and concerned.
 
 SCENE 2 — AMPLIFICATION (seconds 10–20)
-Deepen the impact. Show the scale, cost, or consequence. Make the emotional weight land. Use a visual that makes the number or problem feel real and personal.
+Deepen the impact. Show the scale, cost, or consequence. Make the emotional weight land. Use a visual that makes the number or problem feel real and personal. Subject's face is grim or visibly stressed.
 
 SCENE 3 — RESOLUTION (seconds 20–30)
-Deliver the insight, solution, or curiosity gap. End on a visual that implies positive change or drives the viewer to comment or follow.
+Deliver the insight, solution, or curiosity gap. End on a visual that implies positive change or drives the viewer to comment or follow. Subject's face transitions from serious to a warm, genuine smile — the kind of smile that says "I've got this now."
 
 Each scene prompt must:
 - Be between 80 and 120 words
 - Describe the visuals in present tense ("A woman sits at a desk...")
+- Explicitly describe the subject's facial expression (see arc above)
 - Specify camera movement (slow zoom in / tracking shot / handheld / aerial / static)
 - Specify lighting (golden hour / studio softbox / neon reflections / natural window light)
 - Specify mood and colour grade (warm and cosy / cold and clinical / vibrant and energetic)

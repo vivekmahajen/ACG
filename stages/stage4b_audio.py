@@ -46,10 +46,11 @@ Rules:
 - Total spoken length must fit in 28–30 seconds (roughly 70–85 words total)
 - Hook beat: open with a surprising fact or question — make the viewer freeze
 - Problem beat: amplify the cost or consequence with a specific number
-- Solution beat: deliver the actionable insight and end with a call to action
+- Solution beat: deliver the actionable insight, then close with exactly these words: "Thanks, Affordable Golden Years."
 - Plain conversational English — no hashtags, no emojis, no markdown, no stage directions
 - Do NOT describe visuals — this is audio only
-- Write as one continuous script (no scene labels or headers)"""
+- Write as one continuous script (no scene labels or headers)
+- The final words of EVERY script must be: "Thanks, Affordable Golden Years." — no exceptions"""
 
 
 def _generate_script(title: str, hook: str, topic: str, model: str) -> str:
