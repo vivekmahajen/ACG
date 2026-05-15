@@ -40,37 +40,72 @@ SCRIPT_TOOL = {
 
 SCRIPT_SYSTEM = """You write punchy voiceover scripts for 30-second YouTube Shorts.
 
+Structure — 4 beats in strict order:
+
+BEAT 1 — RETENTION HOOK (first 2–3 seconds, ~10 words max)
+Open with a direct promise that rewards staying to the end. Be specific about the free resources.
+Example: "Stick around — at the end I'll share 5 free official resources that can help you right now."
+Vary the wording every time. Never start two videos the same way.
+
+BEAT 2 — PROBLEM HOOK (seconds 3–10)
+Hit them with a surprising fact, number, or question. Make the viewer feel the problem personally.
+
+BEAT 3 — AMPLIFICATION (seconds 10–20)
+Deepen the cost or consequence with a specific dollar amount or statistic.
+
+BEAT 4 — SOLUTION + SIGN-OFF (seconds 20–30)
+Deliver the actionable insight. End with: "Thanks, Affordable Golden Years."
+
 Rules:
-- Exactly 3 beats matching the 3 video scenes: Hook (0-10s) → Problem (10-20s) → Solution (20-30s)
-- Each beat is 1–2 short sentences
-- Total spoken length must fit in 28–30 seconds (roughly 70–85 words total)
-- Hook beat: open with a surprising fact or question — make the viewer freeze
-- Problem beat: amplify the cost or consequence with a specific number
-- Solution beat: deliver the actionable insight, then close with exactly these words: "Thanks, Affordable Golden Years."
+- Each beat is 1–2 short punchy sentences
+- Total spoken length: 28–30 seconds (roughly 75–90 words)
 - Plain conversational English — no hashtags, no emojis, no markdown, no stage directions
-- Do NOT describe visuals — this is audio only
-- Write as one continuous script (no scene labels or headers)
+- Do NOT describe visuals — audio only
+- Write as one continuous script with no labels or headers
 - The final words of EVERY script must be: "Thanks, Affordable Golden Years." — no exceptions"""
 
 
-def _generate_script(title: str, hook: str, topic: str, model: str) -> str:
+def _build_resource_teaser(resources: list[dict]) -> str:
+    """Build a short description of resources for the retention hook."""
+    if not resources:
+        return "free official resources that can help you take action today"
+    count = len(resources)
+    # Pick the most trusted-sounding domain names to name-drop
+    domains = []
+    for r in resources[:3]:
+        url = r.get("url", "")
+        import re
+        m = re.search(r"https?://(?:www\.)?([^/]+)", url)
+        if m:
+            domains.append(m.group(1))
+    if domains:
+        domain_str = " and ".join(domains[:2])
+        return f"{count} free resources including {domain_str}"
+    return f"{count} free official resources"
+
+
+def _generate_script(title: str, hook: str, topic: str, model: str,
+                     resources: list[dict] | None = None) -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY is not set")
 
     client = anthropic.Anthropic(api_key=api_key)
+    resource_teaser = _build_resource_teaser(resources or [])
     user_prompt = (
         f"Video topic: {topic}\n"
         f"YouTube title: {title}\n"
-        f"Hook line: {hook}\n\n"
-        "Write the voiceover script now."
+        f"Problem hook line: {hook}\n"
+        f"Resources teaser for Beat 1: \"{resource_teaser}\"\n\n"
+        "Write the 4-beat voiceover script now. "
+        "Beat 1 must open with the retention hook using the resources teaser above."
     )
 
     for attempt in range(3):
         try:
             message = client.messages.create(
                 model=model,
-                max_tokens=400,
+                max_tokens=500,
                 system=SCRIPT_SYSTEM,
                 tools=[SCRIPT_TOOL],
                 tool_choice={"type": "any"},
@@ -134,7 +169,8 @@ def _mix(video_path: str, audio_path: str, output_path: str) -> str:
     return output_path
 
 
-def run(stage2_out: dict, stage3_out: dict, stage4_out: dict, dry_run: bool = False) -> dict:
+def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
+        dry_run: bool = False, resources: list | None = None) -> dict:
     """Generate voiceover and mix onto video. Returns updated stage4_out with new video_file."""
     if dry_run:
         logger.info("Stage 4b | DRY-RUN — skipping audio generation")
@@ -153,8 +189,8 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict, dry_run: bool = Fa
     audio_path = str(Path(video_file).parent / f"{stem}_vo.mp3")
     mixed_path = str(Path(video_file).parent / f"{stem}_audio.mp4")
 
-    # Step 1: generate script
-    script = _generate_script(title, hook, topic, model)
+    # Step 1: generate script with retention hook built from resources
+    script = _generate_script(title, hook, topic, model, resources=resources or [])
 
     # Step 2: TTS synthesis
     try:

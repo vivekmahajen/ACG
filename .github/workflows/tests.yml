@@ -27,8 +27,8 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt pytest
 
-      - name: Install ffmpeg
-        run: sudo apt-get install -y ffmpeg
+      - name: Install ffmpeg and fonts
+        run: sudo apt-get install -y ffmpeg fonts-dejavu-core
 
       - name: Run tests
         run: python -m pytest test_stage1.py test_stage2.py test_stage3.py test_stage4.py test_stage5.py -v

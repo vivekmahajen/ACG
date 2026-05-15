@@ -24,8 +24,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 SCOPES = [
-    "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/youtube.force-ssl",
+    "https://www.googleapis.com/auth/youtube",
 ]
 TOKEN_FILE = "token.json"
 
@@ -202,7 +201,15 @@ def _post_comment(youtube, video_id: str, text: str) -> None:
         comment_id = response["snippet"]["topLevelComment"]["id"]
         logger.info("Stage 5 | Comment posted (id=%s) — pin it manually in YouTube Studio", comment_id)
     except HttpError as e:
-        logger.warning("Stage 5 | Could not post comment (%s) — skipping", e)
+        if e.resp.status == 403:
+            logger.error(
+                "Stage 5 | Comment posting forbidden (403) — your token.json is missing the "
+                "'youtube.force-ssl' scope. Delete token.json and re-authenticate."
+            )
+        else:
+            logger.error("Stage 5 | Could not post comment (HTTP %s): %s", e.resp.status, e)
+    except Exception as e:
+        logger.error("Stage 5 | Comment posting failed unexpectedly: %s", e)
 
 
 def _build_comment(stage3: dict, resources: list[dict]) -> str:
