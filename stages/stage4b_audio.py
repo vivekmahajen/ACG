@@ -40,25 +40,31 @@ SCRIPT_TOOL = {
 
 SCRIPT_SYSTEM = """You write punchy voiceover scripts for 30-second YouTube Shorts.
 
+You will be given: the video topic, the problem hook, the specific tip/solution, and a resource teaser.
+
 Structure — 4 beats in strict order:
 
-BEAT 1 — RETENTION HOOK (first 2–3 seconds, ~10 words max)
-Open with a direct promise that rewards staying to the end. Be specific about the free resources.
-Example: "Stick around — at the end I'll share 5 free official resources that can help you right now."
-Vary the wording every time. Never start two videos the same way.
+BEAT 1 — RETENTION HOOK (first 2–3 seconds, ~12 words max)
+Tease the SPECIFIC TIP that will be revealed at the end — not resources, not a vague promise.
+Make the viewer feel they will miss something valuable if they leave.
+Example: "Stay to the end — I'll show you the one switch that stops this drain immediately."
+Use the tip provided. Vary the wording every time. Never start two videos the same way.
 
 BEAT 2 — PROBLEM HOOK (seconds 3–10)
-Hit them with a surprising fact, number, or question. Make the viewer feel the problem personally.
+Hit them with the surprising fact or number. Make the viewer feel the problem is happening to them right now.
 
 BEAT 3 — AMPLIFICATION (seconds 10–20)
-Deepen the cost or consequence with a specific dollar amount or statistic.
+Deepen the cost or consequence with a specific dollar figure or statistic. Make the scale land emotionally.
 
-BEAT 4 — SOLUTION + SIGN-OFF (seconds 20–30)
-Deliver the actionable insight. End with: "Thanks, Affordable Golden Years."
+BEAT 4 — TIP DELIVERY + RESOURCES + SIGN-OFF (seconds 20–30)
+Deliver the tip from Beat 1 explicitly and completely — this is the payoff the viewer stayed for.
+Then in one short sentence mention the free resources in the pinned comment.
+Close with exactly: "Thanks, Affordable Golden Years."
 
 Rules:
 - Each beat is 1–2 short punchy sentences
-- Total spoken length: 28–30 seconds (roughly 75–90 words)
+- Total spoken length: 28–32 seconds (roughly 80–95 words)
+- The tip in Beat 4 MUST directly answer or resolve what was teased in Beat 1 — no bait-and-switch
 - Plain conversational English — no hashtags, no emojis, no markdown, no stage directions
 - Do NOT describe visuals — audio only
 - Write as one continuous script with no labels or headers
@@ -66,11 +72,9 @@ Rules:
 
 
 def _build_resource_teaser(resources: list[dict]) -> str:
-    """Build a short description of resources for the retention hook."""
     if not resources:
         return "free official resources that can help you take action today"
     count = len(resources)
-    # Pick the most trusted-sounding domain names to name-drop
     domains = []
     for r in resources[:3]:
         url = r.get("url", "")
@@ -79,26 +83,40 @@ def _build_resource_teaser(resources: list[dict]) -> str:
         if m:
             domains.append(m.group(1))
     if domains:
-        domain_str = " and ".join(domains[:2])
-        return f"{count} free resources including {domain_str}"
+        return f"{count} free resources including {' and '.join(domains[:2])}"
     return f"{count} free official resources"
 
 
+def _derive_tip(topic: str, competitor_angle: str, key_visual_idea: str) -> str:
+    """Build a concise tip description for Claude to tease and deliver."""
+    parts = [f"Topic: {topic}"]
+    if competitor_angle:
+        parts.append(f"Solution angle: {competitor_angle}")
+    if key_visual_idea:
+        parts.append(f"Key visual: {key_visual_idea}")
+    return "\n".join(parts)
+
+
 def _generate_script(title: str, hook: str, topic: str, model: str,
-                     resources: list[dict] | None = None) -> str:
+                     resources: list[dict] | None = None,
+                     competitor_angle: str = "",
+                     key_visual_idea: str = "") -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         raise EnvironmentError("ANTHROPIC_API_KEY is not set")
 
     client = anthropic.Anthropic(api_key=api_key)
     resource_teaser = _build_resource_teaser(resources or [])
+    tip_context = _derive_tip(topic, competitor_angle, key_visual_idea)
+
     user_prompt = (
-        f"Video topic: {topic}\n"
         f"YouTube title: {title}\n"
-        f"Problem hook line: {hook}\n"
-        f"Resources teaser for Beat 1: \"{resource_teaser}\"\n\n"
-        "Write the 4-beat voiceover script now. "
-        "Beat 1 must open with the retention hook using the resources teaser above."
+        f"Problem hook (Beat 2): {hook}\n\n"
+        f"Tip/solution context (use this to write Beat 1 teaser and Beat 4 delivery):\n{tip_context}\n\n"
+        f"Resources teaser for Beat 4 mention: \"{resource_teaser}\"\n\n"
+        "Write the 4-beat voiceover script now.\n"
+        "Beat 1 must tease the specific tip from the solution context above.\n"
+        "Beat 4 must deliver that tip explicitly, then mention the resources, then sign off."
     )
 
     for attempt in range(3):
@@ -183,14 +201,21 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
     title: str = stage3_out.get("title", "")
     hook: str = stage2_out.get("hook", "")
     topic: str = stage2_out.get("topic", "")
+    competitor_angle: str = stage2_out.get("competitor_angle", "")
+    key_visual_idea: str = stage2_out.get("key_visual_idea", "")
 
     # Paths
     stem = Path(video_file).stem
     audio_path = str(Path(video_file).parent / f"{stem}_vo.mp3")
     mixed_path = str(Path(video_file).parent / f"{stem}_audio.mp4")
 
-    # Step 1: generate script with retention hook built from resources
-    script = _generate_script(title, hook, topic, model, resources=resources or [])
+    # Step 1: generate script — tip is teased in Beat 1 and delivered in Beat 4
+    script = _generate_script(
+        title, hook, topic, model,
+        resources=resources or [],
+        competitor_angle=competitor_angle,
+        key_visual_idea=key_visual_idea,
+    )
 
     # Step 2: TTS synthesis
     try:
