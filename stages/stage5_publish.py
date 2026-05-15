@@ -153,7 +153,7 @@ def _retry_upload(youtube, video_file: str, stage3: dict, stage2: dict, conf: di
 
 
 def run(stage2_output: dict, stage3_output: dict, stage4_output: dict,
-        run_id: int, dry_run: bool = False) -> dict:
+        run_id: int, dry_run: bool = False, resources: list | None = None) -> dict:
     """Execute Stage 5. Returns dict with video_id and video_url."""
     conf = cfg.load_config()
 
@@ -168,10 +168,10 @@ def run(stage2_output: dict, stage3_output: dict, stage4_output: dict,
 
     result = _retry_upload(youtube, video_file, stage3_output, stage2_output, conf, conf.get("max_retries", 3))
 
-    # Post pinned comment
-    pinned_comment = stage3_output.get("pinned_comment", "")
-    if pinned_comment:
-        _post_comment(youtube, result["video_id"], pinned_comment)
+    # Post pinned comment: disclaimer + resource list (falls back to generated pinned_comment)
+    comment_text = _build_comment(stage3_output, resources or [])
+    if comment_text:
+        _post_comment(youtube, result["video_id"], comment_text)
 
     # Post-upload housekeeping
     published_at = datetime.now(timezone.utc).isoformat()
@@ -203,6 +203,13 @@ def _post_comment(youtube, video_id: str, text: str) -> None:
         logger.info("Stage 5 | Comment posted (id=%s) — pin it manually in YouTube Studio", comment_id)
     except HttpError as e:
         logger.warning("Stage 5 | Could not post comment (%s) — skipping", e)
+
+
+def _build_comment(stage3: dict, resources: list[dict]) -> str:
+    from stages.stage2b_resources import format_pinned_comment
+    if resources:
+        return format_pinned_comment(resources)
+    return stage3.get("pinned_comment", "")
 
 
 def _mock_stage5_output(stage3: dict) -> dict:

@@ -27,7 +27,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from stages import stage1_research, stage2_analyse, stage3_prompt, stage4_generate, stage4b_audio, stage5_publish
+from stages import stage1_research, stage2_analyse, stage2b_resources, stage3_prompt, stage4_generate, stage4b_audio, stage5_publish
 from utils import config as cfg
 from utils import database as db
 from utils.alerts import send_alert
@@ -106,6 +106,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
 
     stage1_out: dict = {}
     stage2_out: dict = {}
+    stage2b_resources_out: list = []
     stage3_out: dict = {}
     stage4_out: dict = {}
     stage5_out: dict = {}
@@ -157,6 +158,13 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
                 "emotion": stage2_out.get("target_emotion"),
             }
             _save_state(stage1_out, stage2_out, stage3_out, stage4_out)
+
+        # ── Stage 2b: Resource Search ────────────────────────────────────
+        if resume_from <= 2:
+            logger.info(">>> Stage 2b: Resource Search")
+            stage2b_resources_out = stage2b_resources.run(stage2_out, dry_run=dry_run)
+            logger.info("Stage 2b | Resources found: %d", len(stage2b_resources_out))
+
         if stop_after_stage == 2:
             return _finish(run_id, "success", pipeline_start, log_data)
 
@@ -226,7 +234,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
         logger.info("Stage 5 | Uploading: %s", stage4_out.get("video_file"))
         upload_start = time.monotonic()
         stage5_out = _run_with_retry(
-            lambda: stage5_publish.run(stage2_out, stage3_out, stage4_out, run_id, dry_run=dry_run),
+            lambda: stage5_publish.run(stage2_out, stage3_out, stage4_out, run_id, dry_run=dry_run, resources=stage2b_resources_out),
             max_retries=conf["max_retries"],
             backoff=conf["retry_backoff_seconds"],
             stage_name="Stage 5",

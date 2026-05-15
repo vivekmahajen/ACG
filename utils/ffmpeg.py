@@ -114,6 +114,28 @@ def concatenate(clips: list[str], output_path: str) -> str:
     return output_path
 
 
+def add_ticker(input_path: str, output_path: str,
+               text: str = "FOR ENTERTAINMENT PURPOSES ONLY — NOT FINANCIAL ADVICE") -> str:
+    """Burn a scrolling disclaimer ticker along the bottom of the video."""
+    # Repeat the text so the scroll fills the full duration
+    scroll_text = f"  {text}  ★  {text}  ★  {text}  "
+    # Escape for ffmpeg drawtext filter syntax
+    escaped = scroll_text.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
+    # x=w-80*t scrolls right-to-left at 80 px/s; y anchors 50px from the bottom
+    drawtext = (
+        f"drawtext=text='{escaped}':"
+        "fontsize=22:fontcolor=white:"
+        "box=1:boxcolor=black@0.75:boxborderw=6:"
+        "x=w-80*t:y=h-50"
+    )
+    cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", drawtext, "-c:a", "copy", output_path]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg add_ticker failed: {result.stderr[-500:]}")
+    logger.info("Ticker added: %s", output_path)
+    return output_path
+
+
 def _run(cmd: list[str], name: str) -> None:
     logger.info("ffmpeg %s: %s", name, " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True)
