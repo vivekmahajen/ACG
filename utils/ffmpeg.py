@@ -134,23 +134,24 @@ def _find_font() -> str | None:
 
 
 def add_ticker(input_path: str, output_path: str,
-               text: str = "FOR ENTERTAINMENT PURPOSES ONLY — NOT FINANCIAL ADVICE") -> str:
+               text: str = "FOR ENTERTAINMENT PURPOSES ONLY - NOT FINANCIAL ADVICE") -> str:
     """Burn a scrolling disclaimer ticker along the bottom of the video."""
     font_path = _find_font()
     if font_path is None:
         raise RuntimeError("No suitable font found for drawtext ticker")
 
-    scroll_text = f"  {text}  ★  {text}  ★  {text}  "
+    # ASCII-only separators to avoid ffmpeg drawtext encoding issues on Linux
+    scroll_text = f"  {text}  |  {text}  |  {text}  "
     # Escape for ffmpeg drawtext: backslash, colon, single-quote are special
     escaped = (
         scroll_text
         .replace("\\", "\\\\")
-        .replace("'", "’")   # replace straight quote with typographic to avoid escaping hell
+        .replace("’", "’")  # typographic apostrophe avoids shell quoting issues
         .replace(":", "\\:")
     )
     font_arg = font_path.replace("\\", "/").replace(":", "\\:")
     drawtext = (
-        f"drawtext=fontfile='{font_arg}':text='{escaped}':"
+        f"drawtext=fontfile=’{font_arg}’:text=’{escaped}’:"
         "fontsize=22:fontcolor=white:"
         "box=1:boxcolor=black@0.75:boxborderw=6:"
         "x=w-80*t:y=h-50"
@@ -158,7 +159,7 @@ def add_ticker(input_path: str, output_path: str,
     cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", drawtext, "-c:a", "copy", output_path]
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
-        raise RuntimeError(f"ffmpeg add_ticker failed: {result.stderr[-500:]}")
+        raise RuntimeError(f"ffmpeg add_ticker failed: {result.stderr[-800:]}")
     logger.info("Ticker added: %s", output_path)
     return output_path
 

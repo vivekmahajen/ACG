@@ -44,10 +44,11 @@ You will be given: the video topic, the problem hook, the specific tip/solution,
 
 Structure — 4 beats in strict order:
 
-BEAT 1 — RETENTION HOOK (first 2–3 seconds, ~12 words max)
-Tease the SPECIFIC TIP that will be revealed at the end — not resources, not a vague promise.
-Make the viewer feel they will miss something valuable if they leave.
-Example: "Stay to the end — I'll show you the one switch that stops this drain immediately."
+BEAT 1 — RETENTION HOOK (first 3–4 seconds, ~18 words max)
+Two parts in one breath:
+1. Tease the SPECIFIC TIP that will be revealed at the end — make the viewer feel they will miss something valuable if they leave.
+2. In the same sentence or immediately after, tell them free resources are waiting in the pinned comment.
+Example: "Stay to the end — I'll show you the one switch that stops this drain, and I've linked free resources in the pinned comment."
 Use the tip provided. Vary the wording every time. Never start two videos the same way.
 
 BEAT 2 — PROBLEM HOOK (seconds 3–10)
@@ -76,7 +77,7 @@ PART C — SIGN-OFF
 Close with exactly: "Thanks, Affordable Golden Years."
 
 Rules:
-- Total spoken length: 32–38 seconds (roughly 90–110 words) — the CTA needs room
+- Total spoken length: 33–40 seconds (roughly 95–115 words) — Beat 1 and the CTA both need room
 - The tip in Part A MUST directly answer what Beat 1 teased
 - Plain conversational English — no hashtags, no emojis, no markdown, no stage directions
 - Do NOT describe visuals — audio only
@@ -128,8 +129,8 @@ def _generate_script(title: str, hook: str, topic: str, model: str,
         f"Tip/solution context (use this to write Beat 1 teaser and Beat 4 delivery):\n{tip_context}\n\n"
         f"Resources teaser for Beat 4 mention: \"{resource_teaser}\"\n\n"
         "Write the 4-beat voiceover script now.\n"
-        "Beat 1 must tease the specific tip from the solution context above.\n"
-        "Beat 4 must deliver that tip explicitly, then mention the resources, then sign off."
+        "Beat 1 must tease the specific tip AND tell viewers free resources are in the pinned comment.\n"
+        "Beat 4 must deliver that tip explicitly, remind viewers the resources are pinned, then sign off."
     )
 
     for attempt in range(3):
