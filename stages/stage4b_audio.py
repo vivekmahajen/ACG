@@ -166,12 +166,25 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict, dry_run: bool = Fa
     # Step 3: mix audio onto video
     try:
         mixed = _mix(video_file, audio_path, mixed_path)
-        # Clean up intermediate audio file
         try:
             os.remove(audio_path)
         except OSError:
             pass
-        return {**stage4_out, "video_file": mixed, "has_audio": True}
     except RuntimeError as e:
         logger.warning("Stage 4b | ffmpeg mix failed (%s) — using silent video", e)
         return stage4_out
+
+    # Step 4: burn scrolling disclaimer ticker onto the video
+    from utils import ffmpeg as _ffmpeg
+    ticker_path = str(Path(video_file).parent / f"{stem}_final.mp4")
+    try:
+        _ffmpeg.add_ticker(mixed, ticker_path)
+        try:
+            os.remove(mixed)
+        except OSError:
+            pass
+        logger.info("Stage 4b | Final video with ticker: %s", ticker_path)
+        return {**stage4_out, "video_file": ticker_path, "has_audio": True}
+    except Exception as e:
+        logger.warning("Stage 4b | Ticker failed (%s) — using video without ticker", e)
+        return {**stage4_out, "video_file": mixed, "has_audio": True}
