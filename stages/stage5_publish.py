@@ -41,6 +41,7 @@ CATEGORY_ID_MAP = {
 
 
 def _get_authenticated_service():
+    import google.auth.exceptions as _gauth_exc
     creds: Credentials | None = None
 
     if Path(TOKEN_FILE).exists():
@@ -50,10 +51,22 @@ def _get_authenticated_service():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            logger.info("Stage 5 | Refreshing OAuth token")
-            import google.auth.transport.requests as grequests
-            creds.refresh(grequests.Request())
-        else:
+            try:
+                logger.info("Stage 5 | Refreshing OAuth token")
+                import google.auth.transport.requests as grequests
+                creds.refresh(grequests.Request())
+            except _gauth_exc.RefreshError as e:
+                logger.warning(
+                    "Stage 5 | Token refresh failed (%s) — scopes may have changed. "
+                    "Deleting token.json and re-authenticating.", e
+                )
+                try:
+                    os.remove(TOKEN_FILE)
+                except OSError:
+                    pass
+                creds = None  # fall through to fresh auth below
+
+        if not creds or not creds.valid:
             client_secret_path = os.environ.get("YOUTUBE_CLIENT_SECRET", "client_secret.json")
             if not Path(client_secret_path).exists():
                 raise FileNotFoundError(
