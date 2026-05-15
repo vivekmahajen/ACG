@@ -114,16 +114,43 @@ def concatenate(clips: list[str], output_path: str) -> str:
     return output_path
 
 
+_FONT_CANDIDATES = [
+    # Windows
+    r"C:/Windows/Fonts/arial.ttf",
+    r"C:/Windows/Fonts/calibri.ttf",
+    r"C:/Windows/Fonts/verdana.ttf",
+    # Linux / GitHub Actions
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+]
+
+
+def _find_font() -> str | None:
+    for path in _FONT_CANDIDATES:
+        if Path(path).exists():
+            return path
+    return None
+
+
 def add_ticker(input_path: str, output_path: str,
                text: str = "FOR ENTERTAINMENT PURPOSES ONLY — NOT FINANCIAL ADVICE") -> str:
     """Burn a scrolling disclaimer ticker along the bottom of the video."""
-    # Repeat the text so the scroll fills the full duration
+    font_path = _find_font()
+    if font_path is None:
+        raise RuntimeError("No suitable font found for drawtext ticker")
+
     scroll_text = f"  {text}  ★  {text}  ★  {text}  "
-    # Escape for ffmpeg drawtext filter syntax
-    escaped = scroll_text.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
-    # x=w-80*t scrolls right-to-left at 80 px/s; y anchors 50px from the bottom
+    # Escape for ffmpeg drawtext: backslash, colon, single-quote are special
+    escaped = (
+        scroll_text
+        .replace("\\", "\\\\")
+        .replace("'", "’")   # replace straight quote with typographic to avoid escaping hell
+        .replace(":", "\\:")
+    )
+    font_arg = font_path.replace("\\", "/").replace(":", "\\:")
     drawtext = (
-        f"drawtext=text='{escaped}':"
+        f"drawtext=fontfile='{font_arg}':text='{escaped}':"
         "fontsize=22:fontcolor=white:"
         "box=1:boxcolor=black@0.75:boxborderw=6:"
         "x=w-80*t:y=h-50"

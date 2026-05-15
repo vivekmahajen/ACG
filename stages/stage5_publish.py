@@ -24,8 +24,7 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 SCOPES = [
-    "https://www.googleapis.com/auth/youtube.upload",
-    "https://www.googleapis.com/auth/youtube.force-ssl",
+    "https://www.googleapis.com/auth/youtube",
 ]
 TOKEN_FILE = "token.json"
 
