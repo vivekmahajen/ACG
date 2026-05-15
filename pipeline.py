@@ -219,7 +219,7 @@ def run_pipeline(dry_run: bool = False, stop_after_stage: int = 5, resume_from: 
         if resume_from <= 4:
             logger.info(">>> Stage 4b: Voiceover Generation")
             stage4_out = _run_with_retry(
-                lambda: stage4b_audio.run(stage2_out, stage3_out, stage4_out, dry_run=dry_run),
+                lambda: stage4b_audio.run(stage2_out, stage3_out, stage4_out, dry_run=dry_run, resources=stage2b_resources_out),
                 max_retries=conf["max_retries"],
                 backoff=conf["retry_backoff_seconds"],
                 stage_name="Stage 4b",
