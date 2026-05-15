@@ -56,15 +56,28 @@ Hit them with the surprising fact or number. Make the viewer feel the problem is
 BEAT 3 — AMPLIFICATION (seconds 10–20)
 Deepen the cost or consequence with a specific dollar figure or statistic. Make the scale land emotionally.
 
-BEAT 4 — TIP DELIVERY + RESOURCES + SIGN-OFF (seconds 20–30)
-Deliver the tip from Beat 1 explicitly and completely — this is the payoff the viewer stayed for.
-Then in one short sentence mention the free resources in the pinned comment.
+BEAT 4 — TIP DELIVERY + ENGAGEMENT CTA + SIGN-OFF (seconds 20–30)
+This beat has three parts — all must appear, in this order:
+
+PART A — TIP DELIVERY
+Deliver the tip from Beat 1 explicitly and completely. This is the payoff the viewer stayed for.
+The tip must directly resolve what was teased in Beat 1 — no bait-and-switch.
+
+PART B — ENGAGEMENT CTA (cover ALL of these signals naturally in 2–3 sentences)
+• Like: ask them to hit like if it helped
+• Comment: ask a specific question tied to the topic so they reply (e.g. "How much do you spend on coffee monthly? Drop it below.")
+• Share: ask them to share with family or friends who need this
+• Subscribe/Follow: ask them to follow for daily tips
+• Save: ask them to save the video so they can come back to it
+• Resources: mention free resources are pinned in the comments
+Do NOT list these as bullet points — weave them into natural spoken sentences.
+
+PART C — SIGN-OFF
 Close with exactly: "Thanks, Affordable Golden Years."
 
 Rules:
-- Each beat is 1–2 short punchy sentences
-- Total spoken length: 28–32 seconds (roughly 80–95 words)
-- The tip in Beat 4 MUST directly answer or resolve what was teased in Beat 1 — no bait-and-switch
+- Total spoken length: 32–38 seconds (roughly 90–110 words) — the CTA needs room
+- The tip in Part A MUST directly answer what Beat 1 teased
 - Plain conversational English — no hashtags, no emojis, no markdown, no stage directions
 - Do NOT describe visuals — audio only
 - Write as one continuous script with no labels or headers
