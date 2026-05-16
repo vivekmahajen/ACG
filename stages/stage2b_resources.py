@@ -66,19 +66,26 @@ RESOURCE_TOOL = {
 
 _DOMAIN_LIST = "\n".join(f"- {d}" for d in TRUSTED_DOMAINS)
 
+# Always-available fallback resources used when Claude returns nothing
+_FALLBACK_RESOURCES = [
+    {"title": "Benefits.gov — Find Benefits You May Qualify For", "url": "https://www.benefits.gov"},
+    {"title": "Consumer Financial Protection Bureau", "url": "https://www.consumerfinance.gov"},
+    {"title": "NCOA — Resources for Older Adults", "url": "https://www.ncoa.org"},
+]
+
 
 def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
     """Generate topic-specific resources via Claude. Returns list of {title, url} dicts."""
     topic: str = stage2_out.get("topic", "")
 
     if dry_run:
-        logger.info("Stage 2b | DRY-RUN — skipping resource generation")
-        return []
+        logger.info("Stage 2b | DRY-RUN — using fallback resources")
+        return _FALLBACK_RESOURCES
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        logger.warning("Stage 2b | ANTHROPIC_API_KEY not set — skipping resources")
-        return []
+        logger.warning("Stage 2b | ANTHROPIC_API_KEY not set — using fallback resources")
+        return _FALLBACK_RESOURCES
 
     try:
         client = anthropic.Anthropic(api_key=api_key)
@@ -103,18 +110,17 @@ def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_resources":
                 resources = block.input.get("resources", [])
-                # Filter to confirmed trusted domains only
                 resources = [r for r in resources if _is_trusted(r.get("url", ""))]
                 if resources:
                     logger.info("Stage 2b | Generated %d topic-specific resources", len(resources))
                     return resources
 
-        logger.warning("Stage 2b | Claude returned no resources")
-        return []
+        logger.warning("Stage 2b | Claude returned no resources — using fallback")
+        return _FALLBACK_RESOURCES
 
     except Exception as exc:
-        logger.warning("Stage 2b | Resource generation failed (%s) — skipping resources", exc)
-        return []
+        logger.warning("Stage 2b | Resource generation failed (%s) — using fallback", exc)
+        return _FALLBACK_RESOURCES
 
 
 def _is_trusted(url: str) -> bool:
