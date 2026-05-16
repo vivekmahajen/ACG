@@ -162,13 +162,13 @@ def add_ticker(input_path: str, output_path: str,
     escaped = (
         scroll_text
         .replace("\\", "\\\\")
-        .replace("’", "\\’")
+        .replace("'", "\\'")
         .replace(":", "\\:")
     )
     font_arg = font_path.replace("\\", "/").replace(":", "\\:")
 
     drawtext = (
-        f"drawtext=fontfile=’{font_arg}’:text=’{escaped}’:"
+        f"drawtext=fontfile='{font_arg}':text='{escaped}':"
         "fontsize=28:fontcolor=white:"
         "box=1:boxcolor=black@0.85:boxborderw=8:"
         "x=w-120*t:y=h-60"
