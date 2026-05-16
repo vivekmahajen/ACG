@@ -47,12 +47,22 @@ RESOURCE_TOOL = {
         "properties": {
             "resources": {
                 "type": "array",
-                "description": "5 resources relevant to the topic, using only approved trusted domains",
+                "description": "3-5 resources relevant to the topic, using only approved trusted domains",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "title": {"type": "string", "description": "Short descriptive title for this resource"},
-                        "url": {"type": "string", "description": "Full URL — must be from one of the approved domains"},
+                        "title": {
+                            "type": "string",
+                            "description": "Descriptive title explaining what to find there, e.g. 'SSA.gov — Medicare cost estimator'",
+                        },
+                        "url": {
+                            "type": "string",
+                            "description": (
+                                "URL from an approved domain. Use ONLY the root domain or one known stable "
+                                "section (e.g. https://www.ssa.gov or https://www.ssa.gov/benefits/). "
+                                "Do NOT invent deep links or specific page paths — they may not exist."
+                            ),
+                        },
                     },
                     "required": ["title", "url"],
                 },
@@ -64,7 +74,7 @@ RESOURCE_TOOL = {
     },
 }
 
-_DOMAIN_LIST = "\n".join(f"- {d}" for d in TRUSTED_DOMAINS)
+_DOMAIN_LIST = "\n".join(f"- https://www.{d}" for d in TRUSTED_DOMAINS)
 
 
 def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
@@ -83,28 +93,28 @@ def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
     client = anthropic.Anthropic(api_key=api_key)
 
     prompts = [
-        # Attempt 1: ask for 3–5 specific resources
+        # Attempt 1: ask for 3–5 resources using root/stable URLs only
         (
             f"Topic: {topic}\n\n"
-            "Provide 3–5 resources directly relevant to this topic. "
-            "You MUST only use URLs from these approved domains:\n"
+            "Provide 3–5 resources relevant to this topic. "
+            "Use ONLY root or well-known section URLs from these approved domains — do NOT invent deep links:\n"
             f"{_DOMAIN_LIST}\n\n"
-            "Link to specific pages about the topic where possible. "
-            "If no specific page exists, use the most relevant section of the site. "
-            "Do not use any domain not on this list."
+            "Good URL examples: https://www.ssa.gov, https://www.medicare.gov/basics/, https://www.irs.gov/retirement-plans\n"
+            "Bad URL examples (do NOT use): https://www.ssa.gov/pubs/some-specific-brochure (may not exist)\n"
+            "Write a descriptive title that tells viewers what they will find there."
         ),
-        # Attempt 2: simpler, just ask for 3
+        # Attempt 2: simpler
         (
             f"Topic: {topic}\n\n"
             "Provide exactly 3 resources about this topic. "
-            "Use ONLY these domains:\n"
+            "Use ONLY root domain URLs (e.g. https://www.ssa.gov) from:\n"
             f"{_DOMAIN_LIST}\n\n"
-            "Pick whichever domains are most relevant to the topic."
+            "Do not guess specific page paths. Root URLs only."
         ),
         # Attempt 3: minimal — just 1 resource
         (
             f"Topic: {topic}\n\n"
-            "Provide 1 resource about this topic from this list of domains:\n"
+            "Provide 1 resource about this topic. Use the root URL of the most relevant domain from:\n"
             f"{_DOMAIN_LIST}"
         ),
     ]
