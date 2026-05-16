@@ -16,10 +16,14 @@ import os
 import sys
 import time
 
-# Railway deployment: decode token.json from env var so OAuth works without a browser
+# CI: decode credentials from env vars so OAuth works without local files
 if os.environ.get("TOKEN_JSON_B64"):
     with open("token.json", "w") as _f:
         _f.write(base64.b64decode(os.environ["TOKEN_JSON_B64"]).decode())
+
+if os.environ.get("CLIENT_SECRET_JSON_B64"):
+    with open("client_secret.json", "w") as _f:
+        _f.write(base64.b64decode(os.environ["CLIENT_SECRET_JSON_B64"]).decode())
 
 import traceback
 from datetime import datetime, timezone

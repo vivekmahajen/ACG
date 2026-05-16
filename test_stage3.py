@@ -22,6 +22,8 @@ VALID_DATA = {
     "video_prompt_1": _SCENE_PROMPT,
     "video_prompt_2": _SCENE_PROMPT,
     "video_prompt_3": _SCENE_PROMPT,
+    "video_prompt_4": _SCENE_PROMPT,
+    "video_prompt_5": _SCENE_PROMPT,
     "title": "Your coffee habit costs $1,200/year",
     "description": "You buy this every day without thinking. We did the maths. Follow for more.",
     "tags": ["tag1", "tag2", "tag3", "tag4", "tag5", "tag6", "tag7", "tag8", "tag9", "tag10", "tag11", "tag12"],

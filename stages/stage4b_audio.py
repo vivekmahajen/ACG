@@ -38,73 +38,55 @@ SCRIPT_TOOL = {
     },
 }
 
-SCRIPT_SYSTEM = """You write punchy voiceover scripts for 30-second YouTube Shorts.
+SCRIPT_SYSTEM = """You write punchy voiceover scripts for 50-second YouTube Shorts.
 
-You will be given: the video topic, the problem hook, the specific tip/solution, and a resource teaser.
+You will be given: the video topic, the problem hook, the specific actionable tip/solution, and a resource note.
 
-Structure — 4 beats in strict order:
+Structure — 5 beats in strict order, matching the video timing exactly:
 
-BEAT 1 — RETENTION HOOK (first 2–3 seconds, ~12 words max)
-Tease the SPECIFIC TIP that will be revealed at the end — not resources, not a vague promise.
-Make the viewer feel they will miss something valuable if they leave.
-Example: "Stay to the end — I'll show you the one switch that stops this drain immediately."
-Use the tip provided. Vary the wording every time. Never start two videos the same way.
+BEAT 1 — HOOK (seconds 0–3, ~8 words max)
+One shocking number or counterintuitive claim. Make the viewer feel something is at stake right now.
+Also tell them free resources are waiting in the pinned comment — weave it in naturally.
+Example: "Most retirees overpay Medicare by $800 a year — resources are pinned below."
 
-BEAT 2 — PROBLEM HOOK (seconds 3–10)
-Hit them with the surprising fact or number. Make the viewer feel the problem is happening to them right now.
+BEAT 2 — PROBLEM (seconds 3–12, ~20 words)
+Explain why this problem affects the viewer specifically and personally right now. Make it feel urgent and real.
 
-BEAT 3 — AMPLIFICATION (seconds 10–20)
-Deepen the cost or consequence with a specific dollar figure or statistic. Make the scale land emotionally.
+BEAT 3 — SOLUTION (seconds 12–35, ~45 words — the longest beat)
+Deliver the single clear, actionable step with a concrete real-world example. Be specific — name the action, the amount, the outcome.
+This is the core value of the video. Do not be vague. Do not rush it.
 
-BEAT 4 — TIP DELIVERY + ENGAGEMENT CTA + SIGN-OFF (seconds 20–30)
-This beat has three parts — all must appear, in this order:
+BEAT 4 — PROOF (seconds 35–45, ~20 words)
+Give one specific number, statistic, or real result that makes the solution believable.
+Something that makes the viewer think "that could be me."
 
-PART A — TIP DELIVERY
-Deliver the tip from Beat 1 explicitly and completely. This is the payoff the viewer stayed for.
-The tip must directly resolve what was teased in Beat 1 — no bait-and-switch.
-
-PART B — ENGAGEMENT CTA (cover ALL of these signals naturally in 2–3 sentences)
-• Like: ask them to hit like if it helped
-• Comment: ask a specific question tied to the topic so they reply (e.g. "How much do you spend on coffee monthly? Drop it below.")
-• Share: ask them to share with family or friends who need this
-• Subscribe/Follow: ask them to follow for daily tips
-• Save: ask them to save the video so they can come back to it
-• Resources: mention free resources are pinned in the comments
-Do NOT list these as bullet points — weave them into natural spoken sentences.
-
-PART C — SIGN-OFF
-Close with exactly: "Thanks, Affordable Golden Years."
+BEAT 5 — CTA + SIGN-OFF (seconds 45–50)
+Use EXACTLY this text, word for word:
+"Subscribe, share, and comment for more money saving tips for tomorrow. Thanks, Affordable Golden Years."
 
 Rules:
-- Total spoken length: 32–38 seconds (roughly 90–110 words) — the CTA needs room
-- The tip in Part A MUST directly answer what Beat 1 teased
+- Total spoken length: MUST fit inside 48 seconds — target roughly 105–115 words (NOT more)
+- At natural speaking pace each word takes ~0.4 seconds — count your words before submitting
+- Beat 3 (Solution) MUST be the longest beat — give it room
+- The solution must directly match the tip provided — no bait-and-switch
 - Plain conversational English — no hashtags, no emojis, no markdown, no stage directions
 - Do NOT describe visuals — audio only
 - Write as one continuous script with no labels or headers
-- The final words of EVERY script must be: "Thanks, Affordable Golden Years." — no exceptions"""
+- The final words of EVERY script must be exactly: "Subscribe, share, and comment for more money saving tips for tomorrow. Thanks, Affordable Golden Years." — no exceptions, no paraphrasing"""
 
 
 def _build_resource_teaser(resources: list[dict]) -> str:
-    if not resources:
-        return "free official resources that can help you take action today"
-    count = len(resources)
-    domains = []
-    for r in resources[:3]:
-        url = r.get("url", "")
-        import re
-        m = re.search(r"https?://(?:www\.)?([^/]+)", url)
-        if m:
-            domains.append(m.group(1))
-    if domains:
-        return f"{count} free resources including {' and '.join(domains[:2])}"
-    return f"{count} free official resources"
+    return "free resources on this topic are linked in the pinned comment"
 
 
-def _derive_tip(topic: str, competitor_angle: str, key_visual_idea: str) -> str:
-    """Build a concise tip description for Claude to tease and deliver."""
-    parts = [f"Topic: {topic}"]
+def _derive_tip(topic: str, solution_tip: str, competitor_angle: str, key_visual_idea: str) -> str:
+    """Build the tip context for Claude — solution_tip is the primary source."""
+    parts = []
+    if solution_tip:
+        parts.append(f"Actionable tip to tease and deliver: {solution_tip}")
+    parts.append(f"Topic: {topic}")
     if competitor_angle:
-        parts.append(f"Solution angle: {competitor_angle}")
+        parts.append(f"Angle: {competitor_angle}")
     if key_visual_idea:
         parts.append(f"Key visual: {key_visual_idea}")
     return "\n".join(parts)
@@ -112,6 +94,7 @@ def _derive_tip(topic: str, competitor_angle: str, key_visual_idea: str) -> str:
 
 def _generate_script(title: str, hook: str, topic: str, model: str,
                      resources: list[dict] | None = None,
+                     solution_tip: str = "",
                      competitor_angle: str = "",
                      key_visual_idea: str = "") -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -120,16 +103,17 @@ def _generate_script(title: str, hook: str, topic: str, model: str,
 
     client = anthropic.Anthropic(api_key=api_key)
     resource_teaser = _build_resource_teaser(resources or [])
-    tip_context = _derive_tip(topic, competitor_angle, key_visual_idea)
+    tip_context = _derive_tip(topic, solution_tip, competitor_angle, key_visual_idea)
 
     user_prompt = (
         f"YouTube title: {title}\n"
         f"Problem hook (Beat 2): {hook}\n\n"
         f"Tip/solution context (use this to write Beat 1 teaser and Beat 4 delivery):\n{tip_context}\n\n"
         f"Resources teaser for Beat 4 mention: \"{resource_teaser}\"\n\n"
-        "Write the 4-beat voiceover script now.\n"
-        "Beat 1 must tease the specific tip from the solution context above.\n"
-        "Beat 4 must deliver that tip explicitly, then mention the resources, then sign off."
+        "Write the 5-beat voiceover script now.\n"
+        "Beat 1 must open with the shocking hook AND mention free resources are pinned below.\n"
+        "Beat 3 (Solution) must be the longest beat — deliver the specific actionable tip with a real example.\n"
+        "Beat 5 must be EXACTLY: 'Subscribe, share, and comment for more money saving tips for tomorrow. Thanks, Affordable Golden Years.'"
     )
 
     for attempt in range(3):
@@ -145,7 +129,7 @@ def _generate_script(title: str, hook: str, topic: str, model: str,
             for block in message.content:
                 if block.type == "tool_use" and block.name == "submit_voiceover_script":
                     script = block.input.get("script", "").strip()
-                    if len(script.split()) < 40:
+                    if len(script.split()) < 100:
                         raise ValueError(f"Script too short ({len(script.split())} words, min 40): {script!r}")
                     logger.info("Stage 4b | Script: %s", script)
                     return script
@@ -177,6 +161,57 @@ def _synthesise(script: str, audio_path: str) -> str:
         f.write(resp.content)
     logger.info("Stage 4b | Audio saved: %s (%d KB)", audio_path, len(resp.content) // 1024)
     return audio_path
+
+
+def _audio_duration(audio_path: str) -> float:
+    """Return the duration of an audio file in seconds using ffprobe."""
+    import subprocess, json
+    result = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+         "-of", "json", audio_path],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"ffprobe failed: {result.stderr}")
+    return float(json.loads(result.stdout)["format"]["duration"])
+
+
+def _fit_audio_to_video(audio_path: str, video_duration: float) -> str:
+    """Speed up the audio with atempo so it fits within video_duration.
+    Returns the original path unchanged if it already fits."""
+    import subprocess
+
+    try:
+        actual = _audio_duration(audio_path)
+    except Exception as e:
+        logger.warning("Stage 4b | Could not measure audio duration (%s) — skipping atempo", e)
+        return audio_path
+
+    logger.info("Stage 4b | Audio duration: %.1fs  Video duration: %.1fs", actual, video_duration)
+
+    # Leave a 1-second buffer so the last word isn't cut at the very edge
+    target = video_duration - 1.0
+    if actual <= target:
+        return audio_path
+
+    ratio = actual / target
+    logger.info("Stage 4b | Audio too long — speeding up by %.2fx with atempo", ratio)
+
+    fitted_path = audio_path.replace(".mp3", "_fitted.mp3")
+    # atempo accepts 0.5–2.0; chain two filters for ratios above 2.0
+    if ratio <= 2.0:
+        af = f"atempo={ratio:.4f}"
+    else:
+        af = f"atempo=2.0,atempo={ratio / 2:.4f}"
+
+    cmd = ["ffmpeg", "-y", "-i", audio_path, "-filter:a", af, fitted_path]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        logger.warning("Stage 4b | atempo failed (%s) — using original audio", result.stderr[-200:])
+        return audio_path
+
+    logger.info("Stage 4b | Audio fitted to %.1fs", target)
+    return fitted_path
 
 
 def _mix(video_path: str, audio_path: str, output_path: str) -> str:
@@ -214,6 +249,7 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
     title: str = stage3_out.get("title", "")
     hook: str = stage2_out.get("hook", "")
     topic: str = stage2_out.get("topic", "")
+    solution_tip: str = stage2_out.get("solution_tip", "")
     competitor_angle: str = stage2_out.get("competitor_angle", "")
     key_visual_idea: str = stage2_out.get("key_visual_idea", "")
 
@@ -226,9 +262,12 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
     script = _generate_script(
         title, hook, topic, model,
         resources=resources or [],
+        solution_tip=solution_tip,
         competitor_angle=competitor_angle,
         key_visual_idea=key_visual_idea,
     )
+
+    video_duration: float = float(stage4_out.get("video_duration", 50.0))
 
     # Step 2: TTS synthesis
     try:
@@ -236,6 +275,15 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
     except EnvironmentError as e:
         logger.warning("Stage 4b | %s — skipping audio", e)
         return stage4_out
+
+    # Step 2b: fit audio to video length — speed up with atempo if over
+    fitted_audio = _fit_audio_to_video(audio_path, video_duration)
+    if fitted_audio != audio_path:
+        try:
+            os.remove(audio_path)
+        except OSError:
+            pass
+        audio_path = fitted_audio
 
     # Step 3: mix audio onto video
     try:
@@ -260,5 +308,6 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
         logger.info("Stage 4b | Final video with ticker: %s", ticker_path)
         return {**stage4_out, "video_file": ticker_path, "has_audio": True}
     except Exception as e:
-        logger.warning("Stage 4b | Ticker failed (%s) — using video without ticker", e)
+        import traceback
+        logger.error("Stage 4b | Ticker failed — full error:\n%s", traceback.format_exc())
         return {**stage4_out, "video_file": mixed, "has_audio": True}

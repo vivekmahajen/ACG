@@ -1,7 +1,7 @@
 """Stage 4 — Video Generation.
 
-Generates three 10-second clips (one per scene prompt) and stitches them into
-a 30-second MP4. Falls back to fewer clips if any scene fails.
+Generates five 10-second clips (one per scene prompt) and stitches them into
+a 50-second MP4. Falls back to fewer clips if any scene fails.
 """
 
 import os
@@ -67,7 +67,7 @@ def run(stage3_output: dict, dry_run: bool = False) -> dict:
     preferred = conf.get("video_provider", "kling")
     duration = conf.get("video_duration_seconds", 10)
 
-    logger.info("Stage 4 | Generating 3-scene video (preferred=%s, duration=%ds each)", preferred, duration)
+    logger.info("Stage 4 | Generating 5-scene video (preferred=%s, duration=%ds each)", preferred, duration)
 
     if dry_run:
         logger.info("Stage 4 | DRY-RUN — returning mock video path")
@@ -75,11 +75,13 @@ def run(stage3_output: dict, dry_run: bool = False) -> dict:
 
     order = [preferred] + [p for p in PROVIDER_ORDER if p != preferred]
 
-    # Collect the 3 scene prompts
+    # Collect the 5 scene prompts
     prompts = [
         stage3_output.get("video_prompt_1"),
         stage3_output.get("video_prompt_2"),
         stage3_output.get("video_prompt_3"),
+        stage3_output.get("video_prompt_4"),
+        stage3_output.get("video_prompt_5"),
     ]
     # Fall back to single prompt if running against old stage3 output
     if not any(prompts):
@@ -151,6 +153,6 @@ def _mock_stage4_output() -> dict:
     return {
         "video_provider": "kling",
         "video_file": mock_path,
-        "video_duration": 30.0,
-        "scenes_generated": 3,
+        "video_duration": 50.0,
+        "scenes_generated": 5,
     }
