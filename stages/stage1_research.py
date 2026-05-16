@@ -90,16 +90,30 @@ def _get_channel_stats(youtube, channel_ids: list[str]) -> dict[str, dict]:
 
 
 def _get_recent_videos(youtube, channel_id: str, days_lookback: int, max_results: int) -> list[str]:
-    """Return video IDs for recent uploads from a channel."""
-    since = (datetime.now(timezone.utc) - timedelta(days=days_lookback)).isoformat()
-    video_ids: list[str] = []
+    """Return video IDs for recent uploads from a channel.
+
+    Uses playlistItems.list (1 quota unit) on the channel's uploads playlist
+    instead of search.list (100 quota units). Falls back to search on failure.
+    """
+    since = datetime.now(timezone.utc) - timedelta(days=days_lookback)
+
+    # Uploads playlist ID: replace leading "UC" with "UU" (always valid for UC channels)
+    if channel_id.startswith("UC"):
+        playlist_id = "UU" + channel_id[2:]
+        video_ids = _playlist_video_ids(youtube, playlist_id, since, max_results, channel_id)
+        if video_ids is not None:
+            return video_ids
+
+    # Fallback: search.list (100 units) — only used if playlist lookup failed
+    logger.warning("Stage 1 | Falling back to search.list for channel %s (costs 100 quota units)", channel_id)
+    video_ids = []
     try:
         response = youtube.search().list(
             part="id",
             channelId=channel_id,
             type="video",
             order="date",
-            publishedAfter=since,
+            publishedAfter=since.isoformat(),
             maxResults=min(max_results, 50),
         ).execute()
         for item in response.get("items", []):
@@ -107,6 +121,43 @@ def _get_recent_videos(youtube, channel_id: str, days_lookback: int, max_results
     except HttpError as e:
         _handle_http_error(e, f"get_recent_videos:{channel_id}")
     return video_ids
+
+
+def _playlist_video_ids(youtube, playlist_id: str, since: datetime, max_results: int, channel_id: str) -> list[str] | None:
+    """Fetch video IDs from a playlist, filtering to items published after `since`.
+
+    Returns None if the playlist doesn't exist (caller should fall back to search).
+    Costs 1 quota unit per page fetched.
+    """
+    video_ids: list[str] = []
+    try:
+        response = youtube.playlistItems().list(
+            part="contentDetails,snippet",
+            playlistId=playlist_id,
+            maxResults=min(max_results * 3, 50),  # fetch extra so date filter has room
+        ).execute()
+        for item in response.get("items", []):
+            video_id = item.get("contentDetails", {}).get("videoId", "")
+            if not video_id:
+                continue
+            published_str = item.get("snippet", {}).get("publishedAt", "")
+            if published_str:
+                try:
+                    published_at = datetime.fromisoformat(published_str.replace("Z", "+00:00"))
+                    if published_at < since:
+                        continue
+                except Exception:
+                    pass
+            video_ids.append(video_id)
+            if len(video_ids) >= max_results:
+                break
+        return video_ids
+    except HttpError as e:
+        if e.resp.status == 404:
+            logger.warning("Stage 1 | Uploads playlist %s not found for channel %s", playlist_id, channel_id)
+            return None
+        _handle_http_error(e, f"playlist_video_ids:{channel_id}")
+        return []
 
 
 def _get_video_details(youtube, video_ids: list[str]) -> list[dict]:
