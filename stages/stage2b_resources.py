@@ -93,28 +93,28 @@ def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
     client = anthropic.Anthropic(api_key=api_key)
 
     prompts = [
-        # Attempt 1: ask for 3–5 resources using root/stable URLs only
+        # Attempt 1: strict relevance + root URLs only
         (
             f"Topic: {topic}\n\n"
-            "Provide 3–5 resources relevant to this topic. "
-            "Use ONLY root or well-known section URLs from these approved domains — do NOT invent deep links:\n"
+            "Provide 3–5 resources from this approved domain list that are DIRECTLY relevant to this specific topic.\n"
             f"{_DOMAIN_LIST}\n\n"
-            "Good URL examples: https://www.ssa.gov, https://www.medicare.gov/basics/, https://www.irs.gov/retirement-plans\n"
-            "Bad URL examples (do NOT use): https://www.ssa.gov/pubs/some-specific-brochure (may not exist)\n"
-            "Write a descriptive title that tells viewers what they will find there."
+            "IMPORTANT rules:\n"
+            "- Only include a domain if it genuinely covers this topic. Do NOT include ssa.gov, medicare.gov, or any other "
+            "domain just to fill the list — only include it if the topic is specifically about that subject.\n"
+            "- Use only root or stable section URLs. Do NOT invent deep links.\n"
+            "- Write a title that describes what the viewer will find there for THIS specific topic."
         ),
-        # Attempt 2: simpler
+        # Attempt 2: even stricter on relevance
         (
             f"Topic: {topic}\n\n"
-            "Provide exactly 3 resources about this topic. "
-            "Use ONLY root domain URLs (e.g. https://www.ssa.gov) from:\n"
+            "Pick 1–3 domains from this list that are most directly related to this topic, and provide their root URL.\n"
             f"{_DOMAIN_LIST}\n\n"
-            "Do not guess specific page paths. Root URLs only."
+            "Only include domains genuinely relevant to the topic. Fewer relevant resources is better than more irrelevant ones."
         ),
         # Attempt 3: minimal — just 1 resource
         (
             f"Topic: {topic}\n\n"
-            "Provide 1 resource about this topic. Use the root URL of the most relevant domain from:\n"
+            "Which single domain from this list is most relevant to this topic? Provide its root URL.\n"
             f"{_DOMAIN_LIST}"
         ),
     ]
