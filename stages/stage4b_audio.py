@@ -86,19 +86,7 @@ Rules:
 
 
 def _build_resource_teaser(resources: list[dict]) -> str:
-    if not resources:
-        return "free official resources that can help you take action today"
-    count = len(resources)
-    domains = []
-    for r in resources[:3]:
-        url = r.get("url", "")
-        import re
-        m = re.search(r"https?://(?:www\.)?([^/]+)", url)
-        if m:
-            domains.append(m.group(1))
-    if domains:
-        return f"{count} free resources including {' and '.join(domains[:2])}"
-    return f"{count} free official resources"
+    return "free resources on this topic are linked in the pinned comment"
 
 
 def _derive_tip(topic: str, competitor_angle: str, key_visual_idea: str) -> str:
@@ -261,5 +249,6 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
         logger.info("Stage 4b | Final video with ticker: %s", ticker_path)
         return {**stage4_out, "video_file": ticker_path, "has_audio": True}
     except Exception as e:
-        logger.warning("Stage 4b | Ticker failed (%s) — using video without ticker", e)
+        import traceback
+        logger.error("Stage 4b | Ticker failed — full error:\n%s", traceback.format_exc())
         return {**stage4_out, "video_file": mixed, "has_audio": True}
