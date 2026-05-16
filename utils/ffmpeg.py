@@ -115,14 +115,15 @@ def concatenate(clips: list[str], output_path: str) -> str:
 
 
 _FONT_CANDIDATES = [
+    # Linux / GitHub Actions (Ubuntu with fonts-dejavu-core)
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
     # Windows
     r"C:/Windows/Fonts/arial.ttf",
     r"C:/Windows/Fonts/calibri.ttf",
     r"C:/Windows/Fonts/verdana.ttf",
-    # Linux / GitHub Actions
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
 ]
 
 
@@ -130,6 +131,19 @@ def _find_font() -> str | None:
     for path in _FONT_CANDIDATES:
         if Path(path).exists():
             return path
+    # Dynamic fallback via fc-list
+    try:
+        result = subprocess.run(
+            ["fc-list", "--format=%{file}\n"],
+            capture_output=True, text=True, timeout=5,
+        )
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.endswith(".ttf") and Path(line).exists():
+                logger.info("Ticker font found via fc-list: %s", line)
+                return line
+    except Exception:
+        pass
     return None
 
 
@@ -143,9 +157,10 @@ def add_ticker(input_path: str, output_path: str,
     if font_path is None:
         raise RuntimeError("No suitable font found for drawtext ticker")
 
-    scroll_text = f"  {text}  |  {text}  |  {text}  "
+    logger.info("Ticker using font: %s", font_path)
+    scroll_text = f"  {text}  ***  {text}  ***  {text}  "
 
-    # Write text to a temp file — avoids ALL ffmpeg drawtext escaping issues on Windows and Linux
+    # Write text to a temp file — avoids ALL ffmpeg drawtext escaping issues
     tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
     try:
         tmp.write(scroll_text)
@@ -154,14 +169,20 @@ def add_ticker(input_path: str, output_path: str,
         font_arg = font_path.replace("\\", "/").replace(":", "\\:")
         drawtext = (
             f"drawtext=fontfile=’{font_arg}’:textfile=’{text_file_arg}’:"
-            "fontsize=22:fontcolor=white:"
-            "box=1:boxcolor=black@0.75:boxborderw=6:"
-            "x=w-80*t:y=h-50"
+            "fontsize=28:fontcolor=white:"
+            "box=1:boxcolor=black@0.85:boxborderw=8:"
+            "x=w-120*t:y=h-60"
         )
-        cmd = ["ffmpeg", "-y", "-i", input_path, "-vf", drawtext, "-c:a", "copy", output_path]
+        cmd = [
+            "ffmpeg", "-y", "-i", input_path,
+            "-vf", drawtext,
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:a", "copy",
+            output_path,
+        ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            raise RuntimeError(f"ffmpeg add_ticker failed: {result.stderr[-800:]}")
+            raise RuntimeError(f"ffmpeg add_ticker failed: {result.stderr[-1000:]}")
         logger.info("Ticker added: %s", output_path)
         return output_path
     finally:
