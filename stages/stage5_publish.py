@@ -24,7 +24,8 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 SCOPES = [
-    "https://www.googleapis.com/auth/youtube",  # broad scope covers upload + comments
+    "https://www.googleapis.com/auth/youtube",
+    "https://www.googleapis.com/auth/youtube.force-ssl",  # required for commentThreads.insert
 ]
 TOKEN_FILE = "token.json"
 
