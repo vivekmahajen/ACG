@@ -87,14 +87,20 @@ def _map_category_id(category_str: str) -> str:
     return CATEGORY_ID_MAP.get(category_str, "27")
 
 
-def _upload(youtube, video_file: str, stage3: dict, stage2: dict, conf: dict) -> dict:
+def _upload(youtube, video_file: str, stage3: dict, stage2: dict, conf: dict,
+            resources: list | None = None) -> dict:
+    from stages.stage2b_resources import format_pinned_comment
     category_id = stage3.get("category_id") or _map_category_id(stage3.get("category", "Finance"))
     privacy = conf.get("privacy", "public")
+
+    base_description = stage3.get("description", "")
+    disclaimer_block = format_pinned_comment(resources or [])
+    full_description = f"{base_description}\n\n{disclaimer_block}" if base_description else disclaimer_block
 
     body = {
         "snippet": {
             "title": stage3["title"],
-            "description": stage3["description"],
+            "description": full_description,
             "tags": stage3["tags"],
             "categoryId": category_id,
             "defaultLanguage": stage3.get("language", "en"),
@@ -123,10 +129,11 @@ def _upload(youtube, video_file: str, stage3: dict, stage2: dict, conf: dict) ->
     return {"video_id": video_id, "video_url": video_url}
 
 
-def _retry_upload(youtube, video_file: str, stage3: dict, stage2: dict, conf: dict, max_retries: int = 3) -> dict:
+def _retry_upload(youtube, video_file: str, stage3: dict, stage2: dict, conf: dict,
+                  max_retries: int = 3, resources: list | None = None) -> dict:
     for attempt in range(1, max_retries + 1):
         try:
-            return _upload(youtube, video_file, stage3, stage2, conf)
+            return _upload(youtube, video_file, stage3, stage2, conf, resources=resources)
         except HttpError as e:
             status = e.resp.status
             if status == 403:
@@ -178,7 +185,8 @@ def run(stage2_output: dict, stage3_output: dict, stage4_output: dict,
 
     youtube = _get_authenticated_service()
 
-    result = _retry_upload(youtube, video_file, stage3_output, stage2_output, conf, conf.get("max_retries", 3))
+    result = _retry_upload(youtube, video_file, stage3_output, stage2_output, conf,
+                           max_retries=conf.get("max_retries", 3), resources=resources or [])
 
     # Post pinned comment: disclaimer + resource list (falls back to generated pinned_comment)
     comment_text = _build_comment(stage3_output, resources or [])
