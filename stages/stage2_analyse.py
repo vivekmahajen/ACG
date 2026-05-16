@@ -35,6 +35,7 @@ Return ONLY valid JSON. No commentary. No markdown. No preamble."""
 REQUIRED_OUTPUT_KEYS = {
     "topic", "why_this_topic", "hook", "key_visual_idea",
     "target_emotion", "estimated_watch_through_rate", "competitor_angle",
+    "solution_tip",
 }
 
 VALID_EMOTIONS = {"curiosity", "surprise", "urgency", "inspiration", "fear", "relief"}
@@ -137,8 +138,9 @@ TREND_TOOL = {
             "target_emotion": {"type": "string", "enum": ["curiosity", "surprise", "urgency", "inspiration", "fear", "relief"]},
             "estimated_watch_through_rate": {"type": "string", "description": "high, medium, or low with one-sentence justification"},
             "competitor_angle": {"type": "string", "description": "How to differentiate from existing videos"},
+            "solution_tip": {"type": "string", "description": "The single specific, actionable thing the viewer can do or check right now to solve the problem — one concrete sentence, no vague advice"},
         },
-        "required": ["topic", "why_this_topic", "hook", "key_visual_idea", "target_emotion", "estimated_watch_through_rate", "competitor_angle"],
+        "required": ["topic", "why_this_topic", "hook", "key_visual_idea", "target_emotion", "estimated_watch_through_rate", "competitor_angle", "solution_tip"],
     },
 }
 
@@ -217,4 +219,5 @@ def _mock_stage2_output() -> dict:
         "target_emotion": "surprise",
         "estimated_watch_through_rate": "high — the hook creates immediate financial anxiety that compels viewers to stay",
         "competitor_angle": "Competitors show the math in a spreadsheet. We show it visually — money literally dissolving into coffee steam.",
+        "solution_tip": "Switch your daily coffee shop visit to home-brewed coffee and redirect that $100 a month into a high-yield savings account.",
     }

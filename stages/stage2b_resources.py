@@ -29,7 +29,7 @@ RESOURCE_TOOL = {
         "properties": {
             "resources": {
                 "type": "array",
-                "description": "5–8 candidate resources. More candidates means more survive URL validation.",
+                "description": "10–12 candidate resources. More candidates means more survive URL validation.",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -38,8 +38,8 @@ RESOURCE_TOOL = {
                     },
                     "required": ["title", "url"],
                 },
-                "minItems": 5,
-                "maxItems": 8,
+                "minItems": 10,
+                "maxItems": 12,
             }
         },
         "required": ["resources"],
@@ -92,18 +92,19 @@ def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=600,
+            max_tokens=1000,
             tools=[RESOURCE_TOOL],
             tool_choice={"type": "any"},
             messages=[{
                 "role": "user",
                 "content": (
                     f"Topic: {topic}\n\n"
-                    "Suggest 5–8 real online resources that directly address this topic. "
+                    "Suggest 10–12 real online resources that directly address this topic. "
                     "Prioritise official government pages (.gov), major nonprofits (aarp.org), "
                     "and well-known financial guidance sites. "
-                    "Link to specific pages, not generic homepages. "
-                    "Suggest more candidates than needed — some may not pass a live URL check."
+                    "Link to specific pages about this exact topic — not generic homepages. "
+                    "Provide more candidates than needed because some URLs will be checked live "
+                    "and dropped if unreachable — aim for at least 5 to survive."
                 ),
             }],
         )
