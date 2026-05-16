@@ -37,17 +37,17 @@ def validate_video(file_path: str) -> None:
     width = int(info.get("width", 0))
     height = int(info.get("height", 0))
 
-    if not (5 <= duration <= 65):
-        raise ValueError(f"Video duration {duration:.1f}s outside acceptable range 5–65s")
+    if not (5 <= duration <= 75):
+        raise ValueError(f"Video duration {duration:.1f}s outside acceptable range 5–75s")
     if width < 720 or height < 1280:
         raise ValueError(f"Video resolution {width}x{height} below minimum 720x1280")
 
     logger.info("Video validated: %.1fs, %dx%d, %.1f KB", duration, width, height, path.stat().st_size / 1024)
 
 
-def trim_to_30s(input_path: str, output_path: str) -> None:
-    cmd = ["ffmpeg", "-y", "-i", input_path, "-t", "30", "-c", "copy", output_path]
-    _run(cmd, "trim_to_30s")
+def trim_to_50s(input_path: str, output_path: str) -> None:
+    cmd = ["ffmpeg", "-y", "-i", input_path, "-t", "50", "-c", "copy", output_path]
+    _run(cmd, "trim_to_50s")
 
 
 def scale_to_1080x1920(input_path: str, output_path: str) -> None:
@@ -73,12 +73,12 @@ def post_process(input_path: str, output_path: str) -> None:
     tmp2 = input_path + ".scaled.mp4"
     tmps: list[str] = []
 
-    if duration > 30:
-        logger.info("Trimming video to 30s")
-        trim_to_30s(current, tmp1)
+    if duration > 50:
+        logger.info("Trimming video to 50s")
+        trim_to_50s(current, tmp1)
         current = tmp1
         tmps.append(tmp1)
-        duration = 30.0
+        duration = 50.0
 
     if width < 1080 or height < 1920:
         logger.info("Scaling video to 1080x1920")

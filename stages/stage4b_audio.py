@@ -38,51 +38,40 @@ SCRIPT_TOOL = {
     },
 }
 
-SCRIPT_SYSTEM = """You write punchy voiceover scripts for 30-second YouTube Shorts.
+SCRIPT_SYSTEM = """You write punchy voiceover scripts for 50-second YouTube Shorts.
 
-You will be given: the video topic, the problem hook, the specific tip/solution, and a resource teaser.
+You will be given: the video topic, the problem hook, the specific actionable tip/solution, and a resource note.
 
-Structure — 4 beats in strict order:
+Structure — 5 beats in strict order, matching the video timing exactly:
 
-BEAT 1 — RETENTION HOOK (first 3–4 seconds, ~18 words max)
-Two parts in one breath:
-1. Tease the SPECIFIC TIP that will be revealed at the end — make the viewer feel they will miss something valuable if they leave.
-2. In the same sentence or immediately after, tell them free resources are waiting in the pinned comment.
-Example: "Stay to the end — I'll show you the one switch that stops this drain, and I've linked free resources in the pinned comment."
-Use the tip provided. Vary the wording every time. Never start two videos the same way.
+BEAT 1 — HOOK (seconds 0–3, ~10 words max)
+One shocking number or counterintuitive claim. Make the viewer feel something is at stake right now.
+Also tell them free resources are waiting in the pinned comment — weave it in naturally.
+Example: "Most retirees are overpaying Medicare by $800 a year — and free resources are pinned below."
 
-BEAT 2 — PROBLEM HOOK (seconds 3–10)
-Hit them with the surprising fact or number. Make the viewer feel the problem is happening to them right now.
+BEAT 2 — PROBLEM (seconds 3–12, ~25 words)
+Explain why this problem affects the viewer specifically and personally right now. Make it feel urgent and real.
 
-BEAT 3 — AMPLIFICATION (seconds 10–20)
-Deepen the cost or consequence with a specific dollar figure or statistic. Make the scale land emotionally.
+BEAT 3 — SOLUTION (seconds 12–35, ~55 words — the longest beat)
+Deliver the single clear, actionable step with a concrete real-world example. Be specific — name the action, the amount, the outcome.
+This is the core value of the video. Do not be vague. Do not rush it.
 
-BEAT 4 — TIP DELIVERY + ENGAGEMENT CTA + SIGN-OFF (seconds 20–30)
-This beat has three parts — all must appear, in this order:
+BEAT 4 — PROOF (seconds 35–45, ~25 words)
+Give one specific number, statistic, or real result that makes the solution believable.
+Something that makes the viewer think "that could be me."
 
-PART A — TIP DELIVERY
-Deliver the tip from Beat 1 explicitly and completely. This is the payoff the viewer stayed for.
-The tip must directly resolve what was teased in Beat 1 — no bait-and-switch.
-
-PART B — ENGAGEMENT CTA (cover ALL of these signals naturally in 2–3 sentences)
-• Like: ask them to hit like if it helped
-• Comment: ask a specific question tied to the topic so they reply (e.g. "How much do you spend on coffee monthly? Drop it below.")
-• Share: ask them to share with family or friends who need this
-• Subscribe/Follow: ask them to follow for daily tips
-• Save: ask them to save the video so they can come back to it
-• Resources: mention free resources are pinned in the comments
-Do NOT list these as bullet points — weave them into natural spoken sentences.
-
-PART C — SIGN-OFF
-Close with exactly: "Thanks, Affordable Golden Years."
+BEAT 5 — CTA + SIGN-OFF (seconds 45–50)
+Use EXACTLY this text, word for word:
+"Subscribe, share, and comment for more money saving tips for tomorrow. Thanks, Affordable Golden Years."
 
 Rules:
-- Total spoken length: 33–40 seconds (roughly 95–115 words) — Beat 1 and the CTA both need room
-- The tip in Part A MUST directly answer what Beat 1 teased
+- Total spoken length: 48–52 seconds (roughly 140–160 words)
+- Beat 3 (Solution) MUST be the longest beat — give it room
+- The solution must directly match the tip provided — no bait-and-switch
 - Plain conversational English — no hashtags, no emojis, no markdown, no stage directions
 - Do NOT describe visuals — audio only
 - Write as one continuous script with no labels or headers
-- The final words of EVERY script must be: "Thanks, Affordable Golden Years." — no exceptions"""
+- The final words of EVERY script must be exactly: "Subscribe, share, and comment for more money saving tips for tomorrow. Thanks, Affordable Golden Years." — no exceptions, no paraphrasing"""
 
 
 def _build_resource_teaser(resources: list[dict]) -> str:
@@ -120,9 +109,10 @@ def _generate_script(title: str, hook: str, topic: str, model: str,
         f"Problem hook (Beat 2): {hook}\n\n"
         f"Tip/solution context (use this to write Beat 1 teaser and Beat 4 delivery):\n{tip_context}\n\n"
         f"Resources teaser for Beat 4 mention: \"{resource_teaser}\"\n\n"
-        "Write the 4-beat voiceover script now.\n"
-        "Beat 1 must tease the specific tip AND tell viewers free resources are in the pinned comment.\n"
-        "Beat 4 must deliver that tip explicitly, remind viewers the resources are pinned, then sign off."
+        "Write the 5-beat voiceover script now.\n"
+        "Beat 1 must open with the shocking hook AND mention free resources are pinned below.\n"
+        "Beat 3 (Solution) must be the longest beat — deliver the specific actionable tip with a real example.\n"
+        "Beat 5 must be EXACTLY: 'Subscribe, share, and comment for more money saving tips for tomorrow. Thanks, Affordable Golden Years.'"
     )
 
     for attempt in range(3):
@@ -138,7 +128,7 @@ def _generate_script(title: str, hook: str, topic: str, model: str,
             for block in message.content:
                 if block.type == "tool_use" and block.name == "submit_voiceover_script":
                     script = block.input.get("script", "").strip()
-                    if len(script.split()) < 40:
+                    if len(script.split()) < 100:
                         raise ValueError(f"Script too short ({len(script.split())} words, min 40): {script!r}")
                     logger.info("Stage 4b | Script: %s", script)
                     return script
