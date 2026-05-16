@@ -110,7 +110,10 @@ def _parse_and_validate(raw: str) -> dict:
         raise ValueError(f"Claude response missing keys: {missing}")
 
     if len(data.get("topic", "")) > 150:
-        raise ValueError(f"Topic too long ({len(data['topic'])} chars > 150)")
+        # Truncate at last word boundary rather than failing the pipeline
+        truncated = data["topic"][:150].rsplit(" ", 1)[0].rstrip(",.;:")
+        logger.warning("Stage 2 | Topic truncated %d→%d chars: %r", len(data["topic"]), len(truncated), truncated)
+        data["topic"] = truncated
 
     emotion = data.get("target_emotion", "").lower()
     if emotion not in VALID_EMOTIONS:
