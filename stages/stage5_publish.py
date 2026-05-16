@@ -46,25 +46,31 @@ def _get_authenticated_service():
     import google.auth.transport.requests as grequests
     creds: Credentials | None = None
 
-    if Path(TOKEN_FILE).exists():
-        with open(TOKEN_FILE) as f:
-            token_data = json.load(f)
-        creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+    if not Path(TOKEN_FILE).exists():
+        logger.error("Stage 5 | token.json not found — TOKEN_JSON_B64 secret may be missing or empty")
+    else:
+        try:
+            with open(TOKEN_FILE) as f:
+                token_data = json.load(f)
+            creds = Credentials.from_authorized_user_info(token_data, SCOPES)
+            logger.info("Stage 5 | Token loaded — valid=%s expired=%s has_refresh=%s",
+                        creds.valid, creds.expired, bool(creds.refresh_token))
+        except Exception as e:
+            logger.error("Stage 5 | Failed to parse token.json: %s", e)
 
-    # Always try to refresh if we have a refresh token — catches expired access tokens
+    # Always try to refresh if we have a refresh token
     if creds and creds.refresh_token and (not creds.valid or creds.expired):
         try:
             logger.info("Stage 5 | Refreshing OAuth token")
             creds.refresh(grequests.Request())
             with open(TOKEN_FILE, "w") as f:
                 f.write(creds.to_json())
-            logger.info("Stage 5 | Token refreshed and saved")
+            logger.info("Stage 5 | Token refreshed successfully")
         except _gauth_exc.RefreshError as e:
             logger.warning("Stage 5 | Token refresh failed: %s", e)
             creds = None
 
     if not creds or not creds.valid:
-        # In CI there is no browser — fail immediately with a clear message
         if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
             raise RuntimeError(
                 "Stage 5 | token.json is missing or invalid and cannot be refreshed in CI. "
@@ -72,9 +78,7 @@ def _get_authenticated_service():
             )
         client_secret_path = os.environ.get("YOUTUBE_CLIENT_SECRET", "client_secret.json")
         if not Path(client_secret_path).exists():
-            raise FileNotFoundError(
-                f"OAuth client secret not found: {client_secret_path}."
-            )
+            raise FileNotFoundError(f"OAuth client secret not found: {client_secret_path}.")
         flow = InstalledAppFlow.from_client_secrets_file(client_secret_path, SCOPES)
         creds = flow.run_local_server(port=0)
         with open(TOKEN_FILE, "w") as f:
