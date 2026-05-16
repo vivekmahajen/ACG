@@ -15,6 +15,7 @@ VALID_RESULT = {
     "target_emotion": "surprise",
     "estimated_watch_through_rate": "high — strong financial hook",
     "competitor_angle": "Make it visual, not a spreadsheet.",
+    "solution_tip": "Switch to home-brewed coffee and put that $100 a month into a high-yield savings account.",
 }
 
 
@@ -98,7 +99,7 @@ def test_build_user_prompt_dedup_block():
 def test_mock_output_keys():
     out = _mock_stage2_output()
     required = {"topic", "why_this_topic", "hook", "key_visual_idea",
-                "target_emotion", "estimated_watch_through_rate", "competitor_angle"}
+                "target_emotion", "estimated_watch_through_rate", "competitor_angle", "solution_tip"}
     assert required.issubset(out.keys())
 
 

@@ -89,11 +89,14 @@ def _build_resource_teaser(resources: list[dict]) -> str:
     return "free resources on this topic are linked in the pinned comment"
 
 
-def _derive_tip(topic: str, competitor_angle: str, key_visual_idea: str) -> str:
-    """Build a concise tip description for Claude to tease and deliver."""
-    parts = [f"Topic: {topic}"]
+def _derive_tip(topic: str, solution_tip: str, competitor_angle: str, key_visual_idea: str) -> str:
+    """Build the tip context for Claude — solution_tip is the primary source."""
+    parts = []
+    if solution_tip:
+        parts.append(f"Actionable tip to tease and deliver: {solution_tip}")
+    parts.append(f"Topic: {topic}")
     if competitor_angle:
-        parts.append(f"Solution angle: {competitor_angle}")
+        parts.append(f"Angle: {competitor_angle}")
     if key_visual_idea:
         parts.append(f"Key visual: {key_visual_idea}")
     return "\n".join(parts)
@@ -101,6 +104,7 @@ def _derive_tip(topic: str, competitor_angle: str, key_visual_idea: str) -> str:
 
 def _generate_script(title: str, hook: str, topic: str, model: str,
                      resources: list[dict] | None = None,
+                     solution_tip: str = "",
                      competitor_angle: str = "",
                      key_visual_idea: str = "") -> str:
     api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -109,7 +113,7 @@ def _generate_script(title: str, hook: str, topic: str, model: str,
 
     client = anthropic.Anthropic(api_key=api_key)
     resource_teaser = _build_resource_teaser(resources or [])
-    tip_context = _derive_tip(topic, competitor_angle, key_visual_idea)
+    tip_context = _derive_tip(topic, solution_tip, competitor_angle, key_visual_idea)
 
     user_prompt = (
         f"YouTube title: {title}\n"
@@ -203,6 +207,7 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
     title: str = stage3_out.get("title", "")
     hook: str = stage2_out.get("hook", "")
     topic: str = stage2_out.get("topic", "")
+    solution_tip: str = stage2_out.get("solution_tip", "")
     competitor_angle: str = stage2_out.get("competitor_angle", "")
     key_visual_idea: str = stage2_out.get("key_visual_idea", "")
 
@@ -215,6 +220,7 @@ def run(stage2_out: dict, stage3_out: dict, stage4_out: dict,
     script = _generate_script(
         title, hook, topic, model,
         resources=resources or [],
+        solution_tip=solution_tip,
         competitor_angle=competitor_angle,
         key_visual_idea=key_visual_idea,
     )
