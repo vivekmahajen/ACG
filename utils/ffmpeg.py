@@ -150,46 +150,42 @@ def _find_font() -> str | None:
 def add_ticker(input_path: str, output_path: str,
                text: str = "FOR ENTERTAINMENT PURPOSES ONLY - NOT FINANCIAL ADVICE") -> str:
     """Burn a scrolling disclaimer ticker along the bottom of the video."""
-    import os as _os
-    import tempfile
-
     font_path = _find_font()
     if font_path is None:
         raise RuntimeError("No suitable font found for drawtext ticker")
 
     logger.info("Ticker using font: %s", font_path)
-    scroll_text = f"  {text}  ***  {text}  ***  {text}  "
 
-    # Write text to a temp file — avoids ALL ffmpeg drawtext escaping issues
-    tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False, encoding="utf-8")
-    try:
-        tmp.write(scroll_text)
-        tmp.close()
-        text_file_arg = tmp.name.replace("\\", "/").replace(":", "\\:")
-        font_arg = font_path.replace("\\", "/").replace(":", "\\:")
-        drawtext = (
-            f"drawtext=fontfile=’{font_arg}’:textfile=’{text_file_arg}’:"
-            "fontsize=28:fontcolor=white:"
-            "box=1:boxcolor=black@0.85:boxborderw=8:"
-            "x=w-120*t:y=h-60"
-        )
-        cmd = [
-            "ffmpeg", "-y", "-i", input_path,
-            "-vf", drawtext,
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-c:a", "copy",
-            output_path,
-        ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise RuntimeError(f"ffmpeg add_ticker failed: {result.stderr[-1000:]}")
-        logger.info("Ticker added: %s", output_path)
-        return output_path
-    finally:
-        try:
-            _os.remove(tmp.name)
-        except OSError:
-            pass
+    # Repeat 3x so text scrolls continuously for the full 50s video
+    scroll_text = f"{text}   ***   {text}   ***   {text}"
+    # Escape characters that are special in ffmpeg filter syntax
+    escaped = (
+        scroll_text
+        .replace("\\", "\\\\")
+        .replace("'", "\\'")
+        .replace(":", "\\:")
+    )
+    font_arg = font_path.replace("\\", "/").replace(":", "\\:")
+
+    drawtext = (
+        f"drawtext=fontfile='{font_arg}':text='{escaped}':"
+        "fontsize=28:fontcolor=white:"
+        "box=1:boxcolor=black@0.85:boxborderw=8:"
+        "x=w-120*t:y=h-60"
+    )
+    cmd = [
+        "ffmpeg", "-y", "-i", input_path,
+        "-vf", drawtext,
+        "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+        "-c:a", "copy",
+        output_path,
+    ]
+    logger.info("Ticker cmd: %s", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"ffmpeg add_ticker failed: {result.stderr[-1000:]}")
+    logger.info("Ticker added: %s", output_path)
+    return output_path
 
 
 def _run(cmd: list[str], name: str) -> None:
