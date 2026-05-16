@@ -43,6 +43,7 @@ CATEGORY_ID_MAP = {
 
 def _get_authenticated_service():
     import google.auth.exceptions as _gauth_exc
+    import google.auth.transport.requests as grequests
     creds: Credentials | None = None
 
     if Path(TOKEN_FILE).exists():
@@ -50,33 +51,32 @@ def _get_authenticated_service():
             token_data = json.load(f)
         creds = Credentials.from_authorized_user_info(token_data, SCOPES)
 
+    # Always try to refresh if we have a refresh token — catches expired access tokens
+    if creds and creds.refresh_token and (not creds.valid or creds.expired):
+        try:
+            logger.info("Stage 5 | Refreshing OAuth token")
+            creds.refresh(grequests.Request())
+            with open(TOKEN_FILE, "w") as f:
+                f.write(creds.to_json())
+            logger.info("Stage 5 | Token refreshed and saved")
+        except _gauth_exc.RefreshError as e:
+            logger.warning("Stage 5 | Token refresh failed: %s", e)
+            creds = None
+
     if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            try:
-                logger.info("Stage 5 | Refreshing OAuth token")
-                import google.auth.transport.requests as grequests
-                creds.refresh(grequests.Request())
-            except _gauth_exc.RefreshError as e:
-                logger.warning(
-                    "Stage 5 | Token refresh failed (%s) — scopes may have changed. "
-                    "Deleting token.json and re-authenticating.", e
-                )
-                try:
-                    os.remove(TOKEN_FILE)
-                except OSError:
-                    pass
-                creds = None  # fall through to fresh auth below
-
-        if not creds or not creds.valid:
-            client_secret_path = os.environ.get("YOUTUBE_CLIENT_SECRET", "client_secret.json")
-            if not Path(client_secret_path).exists():
-                raise FileNotFoundError(
-                    f"OAuth client secret not found: {client_secret_path}. "
-                    "Set YOUTUBE_CLIENT_SECRET env var to the path of your client_secret.json."
-                )
-            flow = InstalledAppFlow.from_client_secrets_file(client_secret_path, SCOPES)
-            creds = flow.run_local_server(port=0)
-
+        # In CI there is no browser — fail immediately with a clear message
+        if os.environ.get("CI") or os.environ.get("GITHUB_ACTIONS"):
+            raise RuntimeError(
+                "Stage 5 | token.json is missing or invalid and cannot be refreshed in CI. "
+                "Run 'python reauth.py' locally, then update TOKEN_JSON_B64 in GitHub Secrets."
+            )
+        client_secret_path = os.environ.get("YOUTUBE_CLIENT_SECRET", "client_secret.json")
+        if not Path(client_secret_path).exists():
+            raise FileNotFoundError(
+                f"OAuth client secret not found: {client_secret_path}."
+            )
+        flow = InstalledAppFlow.from_client_secrets_file(client_secret_path, SCOPES)
+        creds = flow.run_local_server(port=0)
         with open(TOKEN_FILE, "w") as f:
             f.write(creds.to_json())
         logger.info("Stage 5 | OAuth token saved to %s", TOKEN_FILE)
