@@ -2,15 +2,27 @@ name: Daily YouTube Pipeline
 
 on:
   schedule:
-    - cron: '0 8 * * *'   # 8:00 AM UTC daily
+    - cron: '0 16 * * *'   #  8:00 AM PST
+    - cron: '0 19 * * *'   # 11:00 AM PST
+    - cron: '0 22 * * *'   #  2:00 PM PST
+    - cron: '0  1 * * *'   #  5:00 PM PST
+    - cron: '0  4 * * *'   #  8:00 PM PST
   workflow_dispatch:        # manual trigger
+    inputs:
+      resume_from:
+        description: 'Resume from stage (1=full run, 5=skip to upload using saved video)'
+        default: '1'
+        required: false
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
+    timeout-minutes: 120   # 5 scenes × ~5 min each + overhead; kills hung jobs cleanly
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
@@ -36,19 +48,38 @@ jobs:
           key: pipeline-db-${{ github.run_number }}
           restore-keys: pipeline-db-
 
+      - name: Restore saved video and state (for resume)
+        if: ${{ github.event.inputs.resume_from > '1' }}
+        uses: actions/download-artifact@v4
+        with:
+          name: pipeline-state-latest
+        continue-on-error: true   # first-ever run won't have an artifact yet
+
       - name: Run pipeline
         env:
           YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           KLING_API_KEY: ${{ secrets.KLING_API_KEY }}
           RUNWAY_API_KEY: ${{ secrets.RUNWAY_API_KEY }}
           HIGGSFIELD_API_KEY: ${{ secrets.HIGGSFIELD_API_KEY }}
-          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           TOKEN_JSON_B64: ${{ secrets.TOKEN_JSON_B64 }}
+          CLIENT_SECRET_JSON_B64: ${{ secrets.CLIENT_SECRET_JSON_B64 }}
           ALERT_SMTP_HOST: ${{ secrets.ALERT_SMTP_HOST }}
           ALERT_SMTP_USER: ${{ secrets.ALERT_SMTP_USER }}
           ALERT_SMTP_PASS: ${{ secrets.ALERT_SMTP_PASS }}
-        run: python pipeline.py
+        run: python pipeline.py --resume-from ${{ github.event.inputs.resume_from || '1' }}
+
+      - name: Save video and pipeline state for potential resume
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-state-latest
+          path: |
+            logs/pipeline_state.json
+            generated_videos/
+          retention-days: 2
+          overwrite: true
 
       - name: Upload daily logs
         if: always()
