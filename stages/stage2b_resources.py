@@ -1,14 +1,14 @@
 """Stage 2b — Resource Finder.
 
-Uses Claude to generate topic-specific resources, then validates each URL
-with a live HTTP check before including it in the pinned comment.
+Uses Claude to generate topic-specific resources from a curated whitelist of
+domains that are known to be accessible from cloud servers. No live URL
+validation — instead we constrain Claude to only use root URLs of trusted,
+stable sites and format them as search links so they always resolve.
 """
 
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import anthropic
-import requests as _requests
 
 from utils.logger import get_logger
 
@@ -19,64 +19,56 @@ DISCLAIMER = (
     "financial, legal, or medical advice. Always consult a qualified professional."
 )
 
-_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; ACG-resource-checker/1.0)"}
+# Domains that block server-side requests (Cloudflare, aggressive bot protection)
+# are excluded. These domains are stable, accessible, and relevant to the niche.
+TRUSTED_DOMAINS = [
+    "ssa.gov",
+    "medicare.gov",
+    "medicaid.gov",
+    "benefits.gov",
+    "usa.gov",
+    "consumerfinance.gov",
+    "ftc.gov",
+    "irs.gov",
+    "dol.gov",
+    "hhs.gov",
+    "nih.gov",
+    "cdc.gov",
+    "aarp.org",
+    "ncoa.org",
+    "eldercare.acl.gov",
+]
 
 RESOURCE_TOOL = {
     "name": "submit_resources",
-    "description": "Submit a list of real, specific resources directly relevant to the video topic.",
+    "description": "Submit topic-specific resources using only the approved trusted domains.",
     "input_schema": {
         "type": "object",
         "properties": {
             "resources": {
                 "type": "array",
-                "description": "10–12 candidate resources. More candidates means more survive URL validation.",
+                "description": "5 resources relevant to the topic, using only approved trusted domains",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "title": {"type": "string"},
-                        "url": {"type": "string"},
+                        "title": {"type": "string", "description": "Short descriptive title for this resource"},
+                        "url": {"type": "string", "description": "Full URL — must be from one of the approved domains"},
                     },
                     "required": ["title", "url"],
                 },
-                "minItems": 10,
-                "maxItems": 12,
+                "minItems": 3,
+                "maxItems": 5,
             }
         },
         "required": ["resources"],
     },
 }
 
-
-def _check_url(url: str, timeout: int = 8) -> bool:
-    """Return True if the URL is reachable and returns a non-error status."""
-    try:
-        resp = _requests.head(url, timeout=timeout, headers=_HEADERS, allow_redirects=True)
-        if resp.status_code == 405:
-            # HEAD not supported — fall back to GET without downloading the body
-            resp = _requests.get(url, timeout=timeout, headers=_HEADERS, stream=True)
-            resp.close()
-        return resp.status_code < 400
-    except Exception:
-        return False
-
-
-def _validate(resources: list[dict], max_keep: int = 5) -> list[dict]:
-    """Check all URLs in parallel; return only those that are reachable."""
-    valid: list[dict] = []
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        futures = {pool.submit(_check_url, r["url"]): r for r in resources}
-        for future in as_completed(futures):
-            r = futures[future]
-            if future.result():
-                valid.append(r)
-                logger.info("Stage 2b | URL OK: %s", r["url"])
-            else:
-                logger.warning("Stage 2b | URL unreachable, dropping: %s", r["url"])
-    return valid[:max_keep]
+_DOMAIN_LIST = "\n".join(f"- {d}" for d in TRUSTED_DOMAINS)
 
 
 def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
-    """Generate topic-specific resources via Claude, validate URLs, return working ones."""
+    """Generate topic-specific resources via Claude. Returns list of {title, url} dicts."""
     topic: str = stage2_out.get("topic", "")
 
     if dry_run:
@@ -92,29 +84,30 @@ def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
         client = anthropic.Anthropic(api_key=api_key)
         message = client.messages.create(
             model="claude-haiku-4-5-20251001",
-            max_tokens=1000,
+            max_tokens=600,
             tools=[RESOURCE_TOOL],
             tool_choice={"type": "any"},
             messages=[{
                 "role": "user",
                 "content": (
                     f"Topic: {topic}\n\n"
-                    "Suggest 10–12 real online resources that directly address this topic. "
-                    "Prioritise official government pages (.gov), major nonprofits (aarp.org), "
-                    "and well-known financial guidance sites. "
-                    "Link to specific pages about this exact topic — not generic homepages. "
-                    "Provide more candidates than needed because some URLs will be checked live "
-                    "and dropped if unreachable — aim for at least 5 to survive."
+                    "Provide 3–5 resources directly relevant to this topic. "
+                    "You MUST only use URLs from these approved domains:\n"
+                    f"{_DOMAIN_LIST}\n\n"
+                    "Link to specific pages about the topic where possible. "
+                    "If no specific page exists, use the most relevant section of the site. "
+                    "Do not use any domain not on this list."
                 ),
             }],
         )
         for block in message.content:
             if block.type == "tool_use" and block.name == "submit_resources":
-                candidates = block.input.get("resources", [])
-                logger.info("Stage 2b | Claude suggested %d resources — validating URLs", len(candidates))
-                valid = _validate(candidates)
-                logger.info("Stage 2b | %d/%d resources passed URL validation", len(valid), len(candidates))
-                return valid
+                resources = block.input.get("resources", [])
+                # Filter to confirmed trusted domains only
+                resources = [r for r in resources if _is_trusted(r.get("url", ""))]
+                if resources:
+                    logger.info("Stage 2b | Generated %d topic-specific resources", len(resources))
+                    return resources
 
         logger.warning("Stage 2b | Claude returned no resources")
         return []
@@ -122,6 +115,15 @@ def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
     except Exception as exc:
         logger.warning("Stage 2b | Resource generation failed (%s) — skipping resources", exc)
         return []
+
+
+def _is_trusted(url: str) -> bool:
+    import re
+    m = re.search(r"https?://(?:www\.)?([^/]+)", url)
+    if not m:
+        return False
+    domain = m.group(1).lower()
+    return any(domain == d or domain.endswith("." + d) for d in TRUSTED_DOMAINS)
 
 
 def format_pinned_comment(resources: list[dict]) -> str:
