@@ -66,61 +66,71 @@ RESOURCE_TOOL = {
 
 _DOMAIN_LIST = "\n".join(f"- {d}" for d in TRUSTED_DOMAINS)
 
-# Always-available fallback resources used when Claude returns nothing
-_FALLBACK_RESOURCES = [
-    {"title": "Benefits.gov — Find Benefits You May Qualify For", "url": "https://www.benefits.gov"},
-    {"title": "Consumer Financial Protection Bureau", "url": "https://www.consumerfinance.gov"},
-    {"title": "NCOA — Resources for Older Adults", "url": "https://www.ncoa.org"},
-]
-
 
 def run(stage2_out: dict, dry_run: bool = False) -> list[dict]:
     """Generate topic-specific resources via Claude. Returns list of {title, url} dicts."""
     topic: str = stage2_out.get("topic", "")
 
     if dry_run:
-        logger.info("Stage 2b | DRY-RUN — using fallback resources")
-        return _FALLBACK_RESOURCES
+        logger.info("Stage 2b | DRY-RUN — skipping resource generation")
+        return []
 
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
-        logger.warning("Stage 2b | ANTHROPIC_API_KEY not set — using fallback resources")
-        return _FALLBACK_RESOURCES
+        logger.warning("Stage 2b | ANTHROPIC_API_KEY not set — skipping resources")
+        return []
 
-    try:
-        client = anthropic.Anthropic(api_key=api_key)
-        message = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=600,
-            tools=[RESOURCE_TOOL],
-            tool_choice={"type": "any"},
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Topic: {topic}\n\n"
-                    "Provide 3–5 resources directly relevant to this topic. "
-                    "You MUST only use URLs from these approved domains:\n"
-                    f"{_DOMAIN_LIST}\n\n"
-                    "Link to specific pages about the topic where possible. "
-                    "If no specific page exists, use the most relevant section of the site. "
-                    "Do not use any domain not on this list."
-                ),
-            }],
-        )
-        for block in message.content:
-            if block.type == "tool_use" and block.name == "submit_resources":
-                resources = block.input.get("resources", [])
-                resources = [r for r in resources if _is_trusted(r.get("url", ""))]
-                if resources:
-                    logger.info("Stage 2b | Generated %d topic-specific resources", len(resources))
-                    return resources
+    client = anthropic.Anthropic(api_key=api_key)
 
-        logger.warning("Stage 2b | Claude returned no resources — using fallback")
-        return _FALLBACK_RESOURCES
+    prompts = [
+        # Attempt 1: ask for 3–5 specific resources
+        (
+            f"Topic: {topic}\n\n"
+            "Provide 3–5 resources directly relevant to this topic. "
+            "You MUST only use URLs from these approved domains:\n"
+            f"{_DOMAIN_LIST}\n\n"
+            "Link to specific pages about the topic where possible. "
+            "If no specific page exists, use the most relevant section of the site. "
+            "Do not use any domain not on this list."
+        ),
+        # Attempt 2: simpler, just ask for 3
+        (
+            f"Topic: {topic}\n\n"
+            "Provide exactly 3 resources about this topic. "
+            "Use ONLY these domains:\n"
+            f"{_DOMAIN_LIST}\n\n"
+            "Pick whichever domains are most relevant to the topic."
+        ),
+        # Attempt 3: minimal — just 1 resource
+        (
+            f"Topic: {topic}\n\n"
+            "Provide 1 resource about this topic from this list of domains:\n"
+            f"{_DOMAIN_LIST}"
+        ),
+    ]
 
-    except Exception as exc:
-        logger.warning("Stage 2b | Resource generation failed (%s) — using fallback", exc)
-        return _FALLBACK_RESOURCES
+    for attempt, prompt in enumerate(prompts, start=1):
+        try:
+            message = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=600,
+                tools=[RESOURCE_TOOL],
+                tool_choice={"type": "any"},
+                messages=[{"role": "user", "content": prompt}],
+            )
+            for block in message.content:
+                if block.type == "tool_use" and block.name == "submit_resources":
+                    resources = block.input.get("resources", [])
+                    resources = [r for r in resources if _is_trusted(r.get("url", ""))]
+                    if resources:
+                        logger.info("Stage 2b | Got %d topic-specific resources (attempt %d)", len(resources), attempt)
+                        return resources
+            logger.warning("Stage 2b | Attempt %d returned no valid resources", attempt)
+        except Exception as exc:
+            logger.warning("Stage 2b | Attempt %d failed: %s", attempt, exc)
+
+    logger.error("Stage 2b | All attempts failed — no resources for topic: %s", topic)
+    return []
 
 
 def _is_trusted(url: str) -> bool:
