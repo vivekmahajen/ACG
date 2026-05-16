@@ -45,6 +45,12 @@ CREATE TABLE IF NOT EXISTS channel_cache (
     niche            TEXT,
     cached_at        TEXT
 );
+
+CREATE TABLE IF NOT EXISTS stage1_cache (
+    niche      TEXT PRIMARY KEY,
+    payload    TEXT NOT NULL,
+    cached_at  TEXT NOT NULL
+);
 """
 
 
@@ -114,6 +120,27 @@ def get_cached_channels(niche: str) -> list[dict]:
             (niche,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def get_stage1_cache(niche: str) -> dict | None:
+    """Return cached Stage 1 output if fetched within the last 20 hours, else None."""
+    import json
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT payload FROM stage1_cache "
+            "WHERE niche = ? AND cached_at >= datetime('now', '-20 hours')",
+            (niche,),
+        ).fetchone()
+    return json.loads(row["payload"]) if row else None
+
+
+def save_stage1_cache(niche: str, payload: dict) -> None:
+    import json
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO stage1_cache (niche, payload, cached_at) VALUES (?, ?, datetime('now'))",
+            (niche, json.dumps(payload)),
+        )
 
 
 def upsert_channel_cache(channels: list[dict], niche: str) -> None:

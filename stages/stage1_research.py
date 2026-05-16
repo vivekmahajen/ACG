@@ -226,6 +226,13 @@ def run(dry_run: bool = False) -> dict:
 
     logger.info("Stage 1 | niche=%s | min_subs=%d | top_n=%d", niche, min_subs, top_n)
 
+    if not dry_run:
+        cached = db.get_stage1_cache(niche)
+        if cached:
+            logger.info("Stage 1 | Using cached video data (%d videos) — skipping YouTube API calls",
+                        len(cached.get("videos", [])))
+            return cached
+
     # Check 24-hour channel cache first
     cached = db.get_cached_channels(niche)
     if cached:
@@ -294,10 +301,13 @@ def run(dry_run: bool = False) -> dict:
         logger.info("Stage 1 | Collected %d videos from %s", len(videos), ch["channel_name"])
 
     logger.info("Stage 1 | Total videos collected: %d", len(all_videos))
-    return {
+    result = {
         "channels": top_channels,
         "videos": all_videos,
     }
+    db.save_stage1_cache(niche, result)
+    logger.info("Stage 1 | Video data cached for niche=%s (reused by subsequent runs today)", niche)
+    return result
 
 
 def _mock_stage1_output() -> dict:
