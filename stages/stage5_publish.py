@@ -65,7 +65,7 @@ def _get_authenticated_service():
             creds.refresh(grequests.Request())
             with open(TOKEN_FILE, "w") as f:
                 f.write(creds.to_json())
-            logger.info("Stage 5 | Token refreshed successfully")
+            logger.info("Stage 5 | Token refreshed and saved")
         except _gauth_exc.RefreshError as e:
             logger.warning("Stage 5 | Token refresh failed: %s", e)
             creds = None
