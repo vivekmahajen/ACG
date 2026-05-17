@@ -169,9 +169,9 @@ def add_ticker(input_path: str, output_path: str,
 
     drawtext = (
         f"drawtext=fontfile='{font_arg}':text='{escaped}':"
-        "fontsize=28:fontcolor=white:"
+        "fontsize=40:fontcolor=white:"
         "box=1:boxcolor=black@0.85:boxborderw=8:"
-        "x=w-120*t:y=h-60"
+        "x=w-120*t:y=h*0.78"
     )
     cmd = [
         "ffmpeg", "-y", "-i", input_path,
