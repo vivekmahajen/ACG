@@ -6,7 +6,6 @@ a 50-second MP4. Falls back to fewer clips if any scene fails.
 
 import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,7 +24,9 @@ PROVIDER_MAP = {
     "runway": runway,
     "higgsfield": higgsfield,
 }
-SUBMIT_STAGGER = 3  # seconds between parallel job submissions to avoid burst 429s
+# Kling enforces a per-account concurrency limit; submitting scenes one at a
+# time (sequential) is the only reliable way to avoid 429 errors.
+INTER_CLIP_DELAY = 5  # seconds to wait between sequential submissions
 
 
 def _output_path(suffix: str = "") -> str:
@@ -86,32 +87,22 @@ def run(stage3_output: dict, dry_run: bool = False) -> dict:
     if not any(prompts):
         prompts = [stage3_output.get("video_prompt")]
     prompts = [p for p in prompts if p]
-    logger.info("Stage 4 | Generating %d scene clip(s) in parallel", len(prompts))
+    logger.info("Stage 4 | Generating %d scene clip(s) sequentially", len(prompts))
 
-    clips_by_scene: dict[int, str] = {}
+    clips: list[str] = []
     used_provider: str | None = preferred
 
-    with ThreadPoolExecutor(max_workers=len(prompts)) as executor:
-        futures = {}
-        for i, prompt in enumerate(prompts, 1):
-            if i > 1:
-                time.sleep(SUBMIT_STAGGER)
-            future = executor.submit(_generate_clip, prompt, i, duration, order)
-            futures[future] = i
-            logger.info("Stage 4 | Scene %d submitted", i)
-
-        for future in as_completed(futures):
-            scene_num = futures[future]
-            try:
-                clip = future.result()
-                if clip:
-                    clips_by_scene[scene_num] = clip
-                    logger.info("Stage 4 | Scene %d complete (%d/%d done)",
-                                scene_num, len(clips_by_scene), len(prompts))
-            except Exception as e:
-                logger.error("Stage 4 | Scene %d raised exception: %s", scene_num, e)
-
-    clips = [clips_by_scene[i] for i in sorted(clips_by_scene)]
+    for i, prompt in enumerate(prompts, 1):
+        if i > 1:
+            logger.info("Stage 4 | Waiting %ds before scene %d to respect rate limits",
+                        INTER_CLIP_DELAY, i)
+            time.sleep(INTER_CLIP_DELAY)
+        clip = _generate_clip(prompt, i, duration, order)
+        if clip:
+            clips.append(clip)
+            logger.info("Stage 4 | Scene %d complete (%d/%d done)", i, len(clips), len(prompts))
+        else:
+            logger.warning("Stage 4 | Scene %d failed — continuing with remaining scenes", i)
 
     if not clips:
         raise RuntimeError("Stage 4 failed: all scene generations failed")
