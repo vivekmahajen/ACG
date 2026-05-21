@@ -17,7 +17,7 @@ on:
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
-    timeout-minutes: 120   # 5 scenes × ~5 min each + overhead; kills hung jobs cleanly
+    timeout-minutes: 180   # 5 scenes × ~10 min each + stage overhead + 429 backoff
 
     steps:
       - uses: actions/checkout@v4

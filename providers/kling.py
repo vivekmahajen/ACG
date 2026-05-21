@@ -66,20 +66,22 @@ def generate(prompt: str, duration: int = 10, output_path: str = "generated_vide
         "mode": "std",
     }
 
+    MAX_SUBMIT_RETRIES = 3
     logger.info("Kling | Submitting generation request")
-    for attempt in range(3):
+    for attempt in range(MAX_SUBMIT_RETRIES):
         resp = requests.post(f"{BASE_URL}/v1/videos/text2video", json=payload, headers=headers, timeout=30)
-        if resp.status_code == 429:
-            wait = 30 * (attempt + 1)
-            logger.warning("Kling | 429 rate-limited — waiting %ds (attempt %d/3)", wait, attempt + 1)
-            time.sleep(wait)
-            token = _make_jwt(access_key, secret_key)
-            headers["Authorization"] = f"Bearer {token}"
-            continue
-        resp.raise_for_status()
-        break
-    else:
-        resp.raise_for_status()
+        if resp.status_code != 429:
+            resp.raise_for_status()
+            break
+        if attempt == MAX_SUBMIT_RETRIES - 1:
+            logger.error("Kling | 429 rate-limited on all %d attempts — giving up", MAX_SUBMIT_RETRIES)
+            resp.raise_for_status()
+        retry_after = resp.headers.get("Retry-After")
+        wait = int(retry_after) if retry_after else 30 * (attempt + 1)
+        logger.warning("Kling | 429 rate-limited — waiting %ds (attempt %d/%d)", wait, attempt + 1, MAX_SUBMIT_RETRIES)
+        time.sleep(wait)
+        token = _make_jwt(access_key, secret_key)
+        headers["Authorization"] = f"Bearer {token}"
     data = resp.json()
 
     task_id = (
