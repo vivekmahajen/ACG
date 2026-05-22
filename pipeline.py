@@ -307,6 +307,18 @@ def _finish(run_id: int, status: str, start: float, log_data: dict, **_) -> dict
     return {"run_id": run_id, "status": status, "elapsed_seconds": elapsed}
 
 
+def _is_fatal_api_error(exc: Exception) -> bool:
+    """Return True for errors that will never succeed on retry (e.g. billing)."""
+    try:
+        import anthropic
+        if isinstance(exc, anthropic.BadRequestError):
+            msg = str(exc).lower()
+            return "credit balance" in msg or "too low" in msg
+    except ImportError:
+        pass
+    return False
+
+
 def _run_with_retry(fn, max_retries: int, backoff: int, stage_name: str):
     last_exc: Exception | None = None
     for attempt in range(1, max_retries + 1):
@@ -315,6 +327,9 @@ def _run_with_retry(fn, max_retries: int, backoff: int, stage_name: str):
         except SystemExit:
             raise
         except Exception as e:
+            if _is_fatal_api_error(e):
+                logger.error("%s failed with a non-retryable error: %s", stage_name, e)
+                raise RuntimeError(f"{stage_name} failed: {e}") from e
             last_exc = e
             if attempt < max_retries:
                 wait = backoff * (2 ** (attempt - 1))
